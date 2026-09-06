@@ -1024,3 +1024,46 @@
 #28 [app builder  8/13] RUN --network=host for attempt in 1 2 3; do     mix tailwind.install && exit 0;     if [ "${attempt}" -eq 3 ]; then exit 1; fi;     sleep "$((attempt * 2))";   done
 #28 2.724 
 #28 2.724 23:39:33.045 [debug] Downloading tailwind from https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64
+#28 DONE 12.4s
+
+#29 [migrate builder  9/13] COPY --from=assets_deps /app/assets/node_modules ./assets/node_modules
+#29 DONE 0.8s
+
+#30 [app builder 10/13] COPY assets assets
+#30 DONE 0.1s
+
+#31 [app builder 11/13] COPY lib lib
+#31 DONE 1.0s
+
+#32 [migrate builder 12/13] COPY priv priv
+#32 DONE 0.2s
+
+#33 [app builder 13/13] RUN mix compile --warnings-as-errors   && mix quality.xref   && mix assets.deploy   && mix release
+#33 2.526 Compiling 811 files (.ex)
+#33 18.04 Compiling lib/codex_pooler/access/api_keys/policies/reasoning_effort_policy.ex (it's taking more than 10s)
+#33 18.04 Compiling lib/codex_pooler/access/api_keys/runtime_authorization.ex (it's taking more than 10s)
+#33 18.09 Compiling lib/codex_pooler/access/api_keys/credentials/touch_debounce.ex (it's taking more than 10s)
+#33 18.16 Compiling lib/codex_pooler/access/invites/public_contract.ex (it's taking more than 10s)
+#33 18.23 Compiling lib/codex_pooler/access/invite_email.ex (it's taking more than 10s)
+#33 18.38 Compiling lib/codex_pooler/access/api_keys/credentials/authentication.ex (it's taking more than 10s)
+#33 18.39 Compiling lib/codex_pooler/access/api_keys/lifecycle/notifications.ex (it's taking more than 10s)
+#33 18.40 Compiling lib/codex_pooler/access/api_keys/policies/policy.ex (it's taking more than 10s)
+#33 18.44 Compiling lib/codex_pooler/access/api_keys/queries/queries.ex (it's taking more than 10s)
+#33 18.45 Compiling lib/codex_pooler/access/api_keys/lifecycle/audit_log.ex (it's taking more than 10s)
+#33 19.18 Compiling lib/codex_pooler/access/api_keys.ex (it's taking more than 10s)
+#33 20.25 Compiling lib/codex_pooler/accounting/pricing/resolution.ex (it's taking more than 10s)
+#33 20.43 Compiling lib/codex_pooler/accounting/lifecycle/request_lifecycle/ledger_entries.ex (it's taking more than 10s)
+#33 22.54 Compiling lib/codex_pooler/gateway/runtime/finalization/side_effects.ex (it's taking more than 10s)
+#33 22.54 Compiling lib/codex_pooler/gateway/routing/session_continuity.ex (it's taking more than 10s)
+#33 22.54 Compiling lib/codex_pooler/gateway/routing/saved_reset_auto_redeem.ex (it's taking more than 10s)
+#33 22.54 Compiling lib/codex_pooler/gateway/routing/routing_selection.ex (it's taking more than 10s)
+#33 22.54 Compiling lib/codex_pooler/gateway/routing/quota_refresh/executor.ex (it's taking more than 10s)
+#33 22.54 Compiling lib/codex_pooler/gateway/routing/circuit_health.ex (it's taking more than 10s)
+#33 22.54 Compiling lib/codex_pooler/gateway/payloads/transport_envelope.ex (it's taking more than 10s)
+#33 22.54 Compiling lib/codex_pooler/gateway/metadata/codex_catalog.ex (it's taking more than 10s)
+#33 22.54 Compiling lib/codex_pooler/admin/upstream_cockpit_metrics/common.ex (it's taking more than 10s)
+#33 22.54 Compiling lib/codex_pooler/accounting/lifecycle/request_lifecycle/identity_snapshot.ex (it's taking more than 10s)
+#33 24.87 Compiling lib/codex_pooler/gateway/usage.ex (it's taking more than 10s)
+#33 29.05 Compiling lib/codex_pooler/gateway/transports/websocket/websocket_owner_session.ex (it's taking more than 10s)
+#33 29.11 Compiling lib/codex_pooler/accounting/request_replay.ex (it's taking more than 10s)
+#33 47.36 Generated codex_pooler app
