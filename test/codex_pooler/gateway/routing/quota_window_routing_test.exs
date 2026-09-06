@@ -5,6 +5,7 @@ defmodule CodexPooler.Gateway.Routing.QuotaWindowRoutingTest do
   alias CodexPooler.Gateway.Routing.CandidateEligibility
   alias CodexPooler.Quotas.AdditionalMeterIdentity
   alias CodexPooler.Quotas.Evidence
+  alias CodexPooler.Quotas.Evidence.CodexParsers
   alias CodexPooler.Repo
   alias CodexPooler.Upstreams
   alias CodexPooler.Upstreams.Quota.AccountAvailabilityStore
@@ -179,6 +180,89 @@ defmodule CodexPooler.Gateway.Routing.QuotaWindowRoutingTest do
   end
 
   describe "lifecycle routing eligibility" do
+    test "full provider permission survives persisted account percentage 100" do
+      observed_at = DateTime.utc_now()
+
+      for seconds <- [18_000, 604_800] do
+        payload = %{
+          "plan_type" => "plus",
+          "rate_limit" => %{
+            "allowed" => true,
+            "limit_reached" => false,
+            "primary_window" => %{
+              "used_percent" => 100,
+              "limit_window_seconds" => seconds,
+              "reset_after_seconds" => 3_600,
+              "reset_at" => DateTime.to_unix(DateTime.add(observed_at, 3_600, :second))
+            },
+            "secondary_window" => nil
+          },
+          "credits" => %{"has_credits" => false, "unlimited" => false}
+        }
+
+        upstream = start_upstream(FakeUpstream.json_response(payload))
+        %{pool: pool, identity: identity, assignment: assignment} = routing_fixture(upstream)
+        model = routing_model(pool, assignment)
+
+        assert {:ok, %{account_availability: %{state: :available}}} =
+                 CodexParsers.parse_codex_usage_result(
+                   payload,
+                   observed_at
+                 )
+
+        assert {:ok, refreshed} =
+                 PoolReconciliation.refresh_quota_from_usage(identity, assignment,
+                   observed_at: observed_at
+                 )
+
+        snapshot =
+          RoutingQuotaSnapshot.load_by_identity_ids([identity.id], observed_at)[identity.id]
+
+        assert %{state: :available} = snapshot.availability
+        assert [window] = snapshot.raw_windows
+        assert Decimal.equal?(window.used_percent, 100)
+        assert window.metadata["rate_limit_allowed"] == true
+        assert window.metadata["rate_limit_reached"] == false
+
+        assert %{eligible?: true} =
+                 Windows.routing_quota_eligibility_from_snapshot(snapshot,
+                   model: model.exposed_model_id,
+                   upstream_model: model.upstream_model_id
+                 )
+
+        assert {:ok, [{^assignment, current_identity}]} =
+                 CandidateEligibility.routable_candidates(model)
+
+        assert current_identity.id == refreshed.id
+
+        stale_at = DateTime.add(observed_at, Evidence.freshness_ttl_seconds() + 1, :second)
+
+        denied_snapshots = [
+          %{snapshot | as_of: stale_at},
+          %{snapshot | as_of: DateTime.add(observed_at, -1, :second)},
+          %{snapshot | credential_epoch: snapshot.credential_epoch + 1},
+          %{snapshot | availability: nil},
+          %{snapshot | availability: %{snapshot.availability | state: :unknown}},
+          %{snapshot | availability: %{snapshot.availability | state: :blocked}},
+          %{snapshot | raw_windows: [%{window | reset_at: nil}]},
+          %{snapshot | raw_windows: [%{window | source: "codex_rate_limit_error"}]},
+          %{snapshot | raw_windows: [%{window | metadata: %{}}]},
+          %{
+            snapshot
+            | raw_windows: [%{window | observed_at: DateTime.add(observed_at, -1, :second)}]
+          }
+        ]
+
+        for denied <- denied_snapshots do
+          assert %{eligible?: false} =
+                   Windows.routing_quota_eligibility_from_snapshot(denied,
+                     model: model.exposed_model_id,
+                     upstream_model: model.upstream_model_id
+                   )
+        end
+      end
+    end
+
     test "definitive provider rejection excludes retained high-percent quota immediately" do
       upstream = start_upstream(unavailable_usage_paths(401))
       %{pool: pool, identity: identity, assignment: assignment} = routing_fixture(upstream)

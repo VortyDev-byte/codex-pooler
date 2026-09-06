@@ -61,14 +61,44 @@ defmodule CodexPooler.Upstreams.Quota.Windows.Routing do
       ordinary.eligible? ->
         ordinary
 
+      provider_permission_usable?(snapshot, ordinary.selection) ->
+        %{
+          ordinary
+          | eligible?: true,
+            routing_state: :provider_available,
+            exclusions: []
+        }
+
       true ->
         availability_fallback(snapshot, raw_windows, ordinary)
     end
   end
 
+  # Preserve the reported percentage. A current full usage observation may
+  # attest account capacity, but cannot override another window's authority.
+  defp provider_permission_usable?(snapshot, selection) do
+    fresh_available?(snapshot) and selection.blocked_windows != [] and
+      Enum.all?(selection.blocked_windows, &permission_overrides_percent?(&1, snapshot))
+  end
+
+  defp permission_overrides_percent?(
+         %Quota.AccountQuotaWindow{
+           quota_scope: "account",
+           source: "codex_usage_api",
+           observed_at: observed_at,
+           metadata: %{"rate_limit_allowed" => true, "rate_limit_reached" => false}
+         } = window,
+         %RoutingQuotaSnapshot{availability: %{observed_at: observed_at}} = snapshot
+       ) do
+    window_reason_codes(window, snapshot.as_of) == ["exhausted"] and
+      exhausted_by_used_percent?(window)
+  end
+
+  defp permission_overrides_percent?(_window, _snapshot), do: false
+
   defp availability_fallback(snapshot, raw_windows, ordinary) do
     windowless_evidence? =
-      windowless_eligible_evidence?(raw_windows, ordinary.selection, snapshot.as_of)
+      windowless_eligible_evidence?(snapshot.raw_windows, ordinary.selection, snapshot.as_of)
 
     cond do
       current_available?(snapshot) and no_raw_account_windows?(raw_windows) and

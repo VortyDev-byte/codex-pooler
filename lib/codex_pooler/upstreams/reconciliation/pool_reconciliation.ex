@@ -784,7 +784,8 @@ defmodule CodexPooler.Upstreams.Reconciliation.PoolReconciliation do
     metadata =
       if ordinary_account_window?(windows) and
            not match?(
-             %CodexPooler.Quotas.AccountAvailability{state: :blocked},
+             %CodexPooler.Quotas.AccountAvailability{state: state}
+             when state in [:available, :blocked],
              account_availability
            ) do
         AccountAvailabilityStore.clear(metadata)

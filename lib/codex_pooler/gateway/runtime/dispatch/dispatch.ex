@@ -10,6 +10,7 @@ defmodule CodexPooler.Gateway.Runtime.Dispatch do
   alias CodexPooler.Gateway.Payloads.RequestOptions
   alias CodexPooler.Gateway.Payloads.RequestOptions.ResetProbe
   alias CodexPooler.Gateway.Persistence.RoutingCircuitState
+  alias CodexPooler.Gateway.Routing.CandidateEligibility.Quota
   alias CodexPooler.Gateway.Routing.{ModelMetadata, RouteLifecycle, RoutingSelection}
   alias CodexPooler.Gateway.Runtime.Dispatch.Context
   alias CodexPooler.Gateway.Runtime.Dispatch.ReplayPreparation
@@ -120,10 +121,23 @@ defmodule CodexPooler.Gateway.Runtime.Dispatch do
 
     with {:ok, context} <- apply_route_selection(context, selection, allow_retry?),
          {:ok, context} <- validate_reset_probe_scope(context),
+         {:ok, context} <- validate_provider_permission(context),
          {:ok, context} <- persist_route_metadata(context),
          {:ok, context} <- begin_candidate_circuit(context, selection),
          {:ok, context} <- start_dispatch_attempt(context, selection) do
       transport_dispatch.(context)
+    end
+  end
+
+  defp validate_provider_permission(%SelectedCandidateContext{} = context) do
+    if Quota.provider_permission_current?(
+         context.model,
+         {context.assignment, context.identity},
+         context.route_state
+       ) do
+      {:ok, context}
+    else
+      handle_unavailable_routing_circuit(context, :provider_permission_changed)
     end
   end
 
