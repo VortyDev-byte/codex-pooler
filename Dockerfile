@@ -1,4 +1,4 @@
-ARG DEBIAN_MIRROR=
+﻿ARG DEBIAN_MIRROR=
 ARG DEBIAN_SECURITY_MIRROR=
 
 FROM node:26.8.1-slim AS assets_deps
@@ -16,7 +16,8 @@ ARG DEBIAN_MIRROR
 ARG DEBIAN_SECURITY_MIRROR
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV ERL_AFLAGS="+JMsingle true"
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl && update-ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN mix local.hex --force && mix local.rebar --force
 ENV MIX_ENV=prod
 
 WORKDIR /app
@@ -41,6 +42,7 @@ RUN for file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do
   && apt-get install -y --no-install-recommends build-essential ca-certificates git \
   && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl && update-ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN mix local.hex --force && mix local.rebar --force
 
 COPY mix.exs mix.lock ./
