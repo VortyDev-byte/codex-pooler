@@ -1766,6 +1766,22 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerProtocolIntegra
          accounting,
          payload
        ) do
+    assert {:ok, request} =
+             Accounting.bind_websocket_owner(
+               auth,
+               accounting.request,
+               accounting.attempt,
+               request_options
+             )
+
+    accounting = %{accounting | request: request}
+
+    assert request.request_metadata["websocket_owner_forwarding"]["owner_instance_id"] ==
+             request_options.transport.websocket_owner.owner_instance_id
+
+    assert request.request_metadata["websocket_owner_forwarding"]["downstream_epoch"] ==
+             request_options.transport.websocket_owner.downstream_epoch
+
     context = %SelectedCandidateContext{
       auth: auth,
       endpoint: "/backend-api/codex/responses",
@@ -2130,15 +2146,20 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerProtocolIntegra
         :ok
 
       [{owner_pid, _value}] ->
-        owner_ref = Process.monitor(owner_pid)
-        :ok = GenServer.stop(owner_pid, :normal, 1_000)
+        logs =
+          capture_log(fn ->
+            owner_ref = Process.monitor(owner_pid)
+            :ok = GenServer.stop(owner_pid, :normal, @detection_timeout_ms)
 
-        receive do
-          {:DOWN, ^owner_ref, :process, ^owner_pid, _reason} -> :ok
-        after
-          @detection_timeout_ms ->
-            raise "timed out cleaning up test-owned websocket owner session"
-        end
+            receive do
+              {:DOWN, ^owner_ref, :process, ^owner_pid, _reason} -> :ok
+            after
+              @detection_timeout_ms ->
+                raise "timed out cleaning up test-owned websocket owner session"
+            end
+          end)
+
+        assert logs == ""
 
       owners ->
         raise "expected at most one test-owned websocket owner, got: #{length(owners)}"
