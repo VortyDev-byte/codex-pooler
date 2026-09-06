@@ -69,7 +69,7 @@ defmodule CodexPooler.Upstreams.Quota.AccountAvailabilityStore do
   def load(metadata) when is_map(metadata), do: decode(metadata[@metadata_key])
   def load(_metadata), do: :error
 
-  @spec available?(Snapshot.t(), pos_integer(), DateTime.t()) :: boolean()
+  @spec available?(Snapshot.t() | nil, pos_integer(), DateTime.t()) :: boolean()
   def available?(%Snapshot{state: :available} = snapshot, credential_epoch, %DateTime{} = as_of) do
     current_epoch?(snapshot, credential_epoch) and not future?(snapshot, as_of) and
       DateTime.compare(
@@ -80,7 +80,7 @@ defmodule CodexPooler.Upstreams.Quota.AccountAvailabilityStore do
 
   def available?(_snapshot, _credential_epoch, _as_of), do: false
 
-  @spec blocked?(Snapshot.t(), pos_integer(), DateTime.t()) :: boolean()
+  @spec blocked?(Snapshot.t() | nil, pos_integer(), DateTime.t()) :: boolean()
   def blocked?(%Snapshot{state: :blocked} = snapshot, credential_epoch, %DateTime{} = as_of) do
     current_epoch?(snapshot, credential_epoch) and not future?(snapshot, as_of)
   end
