@@ -3,6 +3,7 @@ defmodule CodexPooler.Dev.NativePreAttemptDrain.Plug do
   @behaviour Plug
   import Plug.Conn
   alias CodexPooler.Access
+  alias CodexPooler.Dev.NativeCompletionDrain
   alias CodexPooler.Dev.NativePreAttemptDrain
   alias CodexPoolerWeb.Plugs.TrustedProxyRemoteIp
 
@@ -78,6 +79,32 @@ defmodule CodexPooler.Dev.NativePreAttemptDrain.Plug do
     with {:ok, params} <- body(conn), true <- params == %{} do
       :ok = NativePreAttemptDrain.disarm()
       json(conn, 200, NativePreAttemptDrain.status())
+    else
+      _ -> json(conn, 400, %{error: "invalid_control"})
+    end
+  end
+
+  defp dispatch(%{method: "POST", path_info: [action]} = conn)
+       when action in [
+              "hold-caller",
+              "begin-drain",
+              "release-caller",
+              "await-finalization",
+              "await-drained"
+            ] do
+    with {:ok, params} <- body(conn), true <- params == %{} do
+      result =
+        case action do
+          "hold-caller" -> NativePreAttemptDrain.hold_caller()
+          "begin-drain" -> NativeCompletionDrain.command(:begin_drain)
+          "release-caller" -> NativeCompletionDrain.command(:release)
+          _ -> :ok
+        end
+
+      case result do
+        :ok -> json(conn, 200, NativePreAttemptDrain.status())
+        {:error, reason} -> json(conn, 409, %{error: reason})
+      end
     else
       _ -> json(conn, 400, %{error: "invalid_control"})
     end
