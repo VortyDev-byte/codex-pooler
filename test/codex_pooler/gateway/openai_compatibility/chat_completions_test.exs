@@ -1,7 +1,54 @@
 defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletionsTest do
   use ExUnit.Case, async: true
 
-  alias CodexPooler.Gateway.OpenAICompatibility.ChatCompletions
+  alias CodexPooler.Gateway.OpenAICompatibility.{Chat, ChatCompletions}
+
+  test "completed function and custom calls request tool execution in JSON and SSE" do
+    for type <- ["function_call", "custom_tool_call"],
+        {status, expected} <- [
+          {"completed", "tool_calls"},
+          {"incomplete", "length"},
+          {"failed", "stop"}
+        ] do
+      response = %{
+        "id" => "resp_fixture_tools",
+        "status" => status,
+        "output" => [
+          %{
+            "type" => type,
+            "call_id" => "call_fixture",
+            "name" => "fixture_value",
+            "arguments" => "{}",
+            "input" => "synthetic input"
+          }
+        ]
+      }
+
+      normalized = ChatCompletions.normalize_response(response, %{"model" => "gpt-example"})
+      assert get_in(normalized, ["choices", Access.at(0), "finish_reason"]) == expected
+
+      if status == "completed" do
+        event =
+          sse_event("response.completed", %{
+            "type" => "response.completed",
+            "response" => response
+          })
+
+        {stream, state} =
+          ChatCompletions.normalize_stream_data(
+            IO.iodata_to_binary(event),
+            ChatCompletions.stream_state(%{"model" => "gpt-example"})
+          )
+
+        assert state.terminal_seen?
+
+        assert Enum.any?(
+                 normalized_sse_payloads(stream),
+                 &(get_in(&1, ["choices", Access.at(0), "finish_reason"]) == "tool_calls")
+               )
+      end
+    end
+  end
 
   describe "normalize_response/2" do
     test "preserves a literal provider service tier and omits absent or non-string tiers" do
@@ -262,6 +309,40 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletionsTest do
                  %{"index" => 0, "custom" => %{"input" => "print(\"hel"}},
                  %{"index" => 0, "custom" => %{"input" => "lo\")\nreturn 42"}}
                ]
+    end
+
+    test "emits terminal usage from the retained Chat fallback stream options" do
+      assert {:ok, %{chat_payload: chat_payload}} =
+               Chat.coerce(%{
+                 "model" => "gpt-example",
+                 "input" => "synthetic fallback stream input",
+                 "stream" => true,
+                 "stream_options" => %{"include_usage" => true}
+               })
+
+      state = ChatCompletions.stream_state(chat_payload)
+
+      terminal =
+        sse_event("response.completed", %{
+          "type" => "response.completed",
+          "response" => %{
+            "id" => "resp_fallback_usage",
+            "status" => "completed",
+            "usage" => %{"input_tokens" => 2, "output_tokens" => 3, "total_tokens" => 5}
+          }
+        })
+        |> IO.iodata_to_binary()
+
+      assert {output, _state} = ChatCompletions.normalize_stream_data(terminal, state)
+
+      assert Enum.any?(normalized_sse_payloads(output), fn payload ->
+               payload["choices"] == [] and
+                 payload["usage"] == %{
+                   "prompt_tokens" => 2,
+                   "completion_tokens" => 3,
+                   "total_tokens" => 5
+                 }
+             end)
     end
 
     test "adds a literal tier only to chunks emitted after it is observed" do

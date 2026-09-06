@@ -277,7 +277,7 @@ defmodule CodexPooler.Gateway.Runtime.Streaming.DownstreamStreamTest do
 
       assert terminal_chunk
              |> chat_sse_chunks()
-             |> Enum.any?(&match?(%{"choices" => [%{"finish_reason" => "stop"}]}, &1))
+             |> Enum.any?(&match?(%{"choices" => [%{"finish_reason" => "tool_calls"}]}, &1))
     end
 
     test "passes through non-SSE JSON bodies on backend codex responses stream relay" do

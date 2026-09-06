@@ -149,6 +149,20 @@ defmodule CodexPooler.CompatibilityMatrixTest do
                  applicability: "distinct_v2_and_configured_direct_fallback_adapter",
                  classifier_authority: false
                },
+               cursor: %{
+                 applicability: "http_sse_openai_base_url_override",
+                 support: "local_contract_tested",
+                 request: %{
+                   path: "/v1/chat/completions",
+                   shape: "responses_shaped_body"
+                 },
+                 response: %{formats: ["chat_completions_json", "chat_completions_sse"]},
+                 classifier_authority: false,
+                 websocket_support: false,
+                 compaction_support: false,
+                 verification: "authenticated_live_smoke_required",
+                 verified: false
+               },
                opencode: %{
                  applicability: "http_and_websocket_replay_only",
                  classifier_authority: false
@@ -162,6 +176,27 @@ defmodule CodexPooler.CompatibilityMatrixTest do
                  classifier_authority: false,
                  verification: "not_applicable"
                }
+             }
+    end
+
+    test "pins Cursor's unverified HTTP/SSE base-URL override contract" do
+      assert get_in(CompatibilityMatrix.fixture!(:responses_chat), [
+               :compaction_recovery_boundary,
+               :harness_applicability,
+               :cursor
+             ]) == %{
+               applicability: "http_sse_openai_base_url_override",
+               support: "local_contract_tested",
+               request: %{
+                 path: "/v1/chat/completions",
+                 shape: "responses_shaped_body"
+               },
+               response: %{formats: ["chat_completions_json", "chat_completions_sse"]},
+               classifier_authority: false,
+               websocket_support: false,
+               compaction_support: false,
+               verification: "authenticated_live_smoke_required",
+               verified: false
              }
     end
 

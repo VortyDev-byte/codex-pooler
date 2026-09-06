@@ -36,6 +36,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
           required(:service_tier) => String.t() | nil,
           required(:role_sent?) => boolean(),
           required(:visible_seen?) => boolean(),
+          required(:tool_call_seen?) => boolean(),
           required(:terminal_seen?) => boolean(),
           required(:include_usage?) => boolean(),
           required(:discarding_oversized?) => boolean()
@@ -276,6 +277,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
     do: {chat_sse_chunk(%{"content" => delta}, nil, state), mark_visible(state)}
 
   defp tool_call_item_chunk(%{"type" => "function_call"} = item, context, state) do
+    state = %{state | tool_call_seen?: true}
     index = tool_call_index(item, context)
 
     delta = %{
@@ -296,6 +298,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
   end
 
   defp tool_call_item_chunk(%{"type" => "custom_tool_call"} = item, context, state) do
+    state = %{state | tool_call_seen?: true}
     index = tool_call_index(item, context)
 
     delta = %{
@@ -318,6 +321,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
   defp tool_call_item_chunk(_item, _context, state), do: {[], state}
 
   defp tool_call_arguments_chunk(decoded, state) do
+    state = %{state | tool_call_seen?: true}
     index = Map.get(decoded, "output_index") || 0
 
     delta = %{
@@ -333,6 +337,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
   end
 
   defp custom_tool_call_input_chunk(decoded, state) do
+    state = %{state | tool_call_seen?: true}
     index = Map.get(decoded, "output_index") || 0
 
     delta = %{
@@ -362,7 +367,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
 
   defp terminal_stream_chunk(decoded, state) do
     response = response_map(decoded)
-    finish_reason = finish_reason(response)
+    finish_reason = finish_reason(response, state.tool_call_seen?)
 
     {[
        chat_sse_chunk(%{}, finish_reason, state),
@@ -416,6 +421,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
       service_tier: nil,
       role_sent?: false,
       visible_seen?: false,
+      tool_call_seen?: false,
       terminal_seen?: false,
       include_usage?: get_in(chat_payload, ["stream_options", "include_usage"]) == true,
       discarding_oversized?: false
@@ -578,10 +584,12 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
 
   defp total_tokens(_prompt_tokens, _completion_tokens), do: nil
 
-  defp finish_reason(decoded) do
+  defp finish_reason(decoded, tool_call_seen? \\ false) do
     status = decoded_string(decoded, "status")
+    tool_call_seen? = tool_call_seen? or not is_nil(output_tool_calls(decoded))
 
     cond do
+      status in [nil, "completed"] and tool_call_seen? -> "tool_calls"
       status in [nil, "completed", "in_progress"] -> "stop"
       status == "incomplete" -> incomplete_finish_reason(decoded)
       status == "failed" -> "stop"

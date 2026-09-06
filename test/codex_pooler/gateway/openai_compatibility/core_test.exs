@@ -1050,6 +1050,59 @@ defmodule CodexPooler.Gateway.OpenAICompatibilityTest do
   end
 
   @tag :responses_coercion
+  test "Chat coerces Responses-shaped fallbacks while retaining Chat SSE options" do
+    payload = %{
+      "model" => "gpt-fixture-text",
+      "input" => "synthetic fallback fallback input",
+      "reasoning" => %{"effort" => "low"},
+      "text" => %{"verbosity" => "low"},
+      "include" => ["reasoning.encrypted_content"],
+      "stream" => true,
+      "stream_options" => %{"include_usage" => true}
+    }
+
+    assert {:ok, result} = Chat.coerce(payload, collect_openai_response_stream: true)
+
+    assert result.payload["input"] == [
+             %{
+               "type" => "message",
+               "role" => "user",
+               "content" => [
+                 %{"type" => "input_text", "text" => "synthetic fallback fallback input"}
+               ]
+             }
+           ]
+
+    assert result.payload["reasoning"] == payload["reasoning"]
+    assert result.payload["text"] == payload["text"]
+    assert result.payload["include"] == payload["include"]
+    refute Map.has_key?(result.payload, "stream_options")
+    assert result.chat_payload["stream_options"] == %{"include_usage" => true}
+  end
+
+  test "Chat discards the optional user identifier before normalization" do
+    for input <- [
+          %{"input" => "synthetic input"},
+          %{"messages" => [%{"role" => "user", "content" => "synthetic input"}]}
+        ],
+        user <- [nil, "", "synthetic-user"] do
+      payload = Map.merge(input, %{"model" => "gpt-fixture-text", "user" => user})
+      assert {:ok, result} = Chat.coerce(payload)
+      refute Map.has_key?(result.payload, "user")
+      refute Map.has_key?(result.chat_payload, "user")
+    end
+
+    for user <- [42, %{}, []] do
+      assert {:error, %{code: "invalid_request", param: "user"}} =
+               Chat.coerce(%{
+                 "model" => "gpt-fixture-text",
+                 "input" => "synthetic input",
+                 "user" => user
+               })
+    end
+  end
+
+  @tag :responses_coercion
   test "Chat falls back to Responses-shaped input when messages are empty" do
     payload = %{
       "model" => "gpt-fixture-text",
@@ -1071,22 +1124,19 @@ defmodule CodexPooler.Gateway.OpenAICompatibilityTest do
   end
 
   @tag :responses_coercion
-  test "Chat keeps non-empty messages authoritative over conflicting input" do
-    payload = %{
-      "model" => "gpt-fixture-text",
-      "messages" => [%{"role" => "user", "content" => "synthetic message input"}],
-      "input" => "synthetic conflicting fallback input"
-    }
-
-    assert {:ok, result} = Chat.coerce(payload)
-
-    assert result.payload["input"] == [
-             %{
-               "type" => "message",
-               "role" => "user",
-               "content" => [%{"type" => "input_text", "text" => "synthetic message input"}]
-             }
-           ]
+  test "Chat rejects non-empty messages combined with Responses fallback fields" do
+    assert {:error,
+            %{
+              status: 400,
+              code: "invalid_request",
+              message: "Responses fields cannot be combined with non-empty messages",
+              param: "input"
+            }} =
+             Chat.coerce(%{
+               "model" => "gpt-fixture-text",
+               "messages" => [%{"role" => "user", "content" => "synthetic message input"}],
+               "input" => "synthetic conflicting fallback input"
+             })
   end
 
   @tag :unsupported_fields

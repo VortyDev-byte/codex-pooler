@@ -611,7 +611,11 @@ defmodule CodexPoolerWeb.V1.ChatCompletionsControllerTest do
       |> auth(setup)
       |> post("/v1/chat/completions", Map.put(chat_payload(setup), "tools", [function_tool()]))
 
-    assert %{"choices" => [%{"message" => %{"tool_calls" => [tool_call]}}]} =
+    assert %{
+             "choices" => [
+               %{"finish_reason" => "tool_calls", "message" => %{"tool_calls" => [tool_call]}}
+             ]
+           } =
              json_response(conn, 200)
 
     assert tool_call["id"] == "call_fixture"
@@ -1283,6 +1287,7 @@ defmodule CodexPoolerWeb.V1.ChatCompletionsControllerTest do
 
     assert [tool_call] = get_in(tool_chunk, ["choices", Access.at(0), "delta", "tool_calls"])
     assert tool_call["id"] == "call_chat_stream_tool"
+    assert conn.resp_body =~ "\"finish_reason\":\"tool_calls\""
     assert tool_call["type"] == "function"
     assert get_in(tool_call, ["function", "name"]) == "lookup_fixture"
     assert is_binary(get_in(tool_call, ["function", "arguments"]))
@@ -1720,6 +1725,166 @@ defmodule CodexPoolerWeb.V1.ChatCompletionsControllerTest do
     refute metadata_text =~ "synthetic chat fallback input"
     refute metadata_text =~ "synthetic empty-message fallback input"
     refute metadata_text =~ "lookup_additional_fixture"
+  end
+
+  test "POST /v1/chat/completions streams Responses-shaped fallbacks with terminal usage",
+       %{
+         conn: conn
+       } do
+    upstream =
+      start_upstream(
+        FakeUpstream.sse_stream([
+          {"response.created",
+           %{
+             "type" => "response.created",
+             "response" => %{"id" => "resp_fallback_chat_stream", "status" => "in_progress"}
+           }},
+          {"response.output_text.delta",
+           %{"type" => "response.output_text.delta", "delta" => "synthetic fallback answer"}},
+          {"response.completed",
+           %{
+             "type" => "response.completed",
+             "response" => %{
+               "id" => "resp_fallback_chat_stream",
+               "status" => "completed",
+               "usage" => %{"input_tokens" => 5, "output_tokens" => 4, "total_tokens" => 9}
+             }
+           }}
+        ])
+      )
+
+    setup = gateway_setup(upstream)
+
+    response =
+      conn
+      |> auth(setup)
+      |> post("/v1/chat/completions", %{
+        "model" => setup.model.exposed_model_id,
+        "input" => "synthetic fallback fallback input",
+        "reasoning" => %{"effort" => "low"},
+        "text" => %{"verbosity" => "low"},
+        "include" => ["reasoning.encrypted_content"],
+        "stream" => true,
+        "stream_options" => %{"include_usage" => true}
+      })
+
+    assert response.status == 200
+    assert [content_type] = get_resp_header(response, "content-type")
+    assert content_type =~ "text/event-stream"
+    assert response.resp_body =~ "\"object\":\"chat.completion.chunk\""
+    assert response.resp_body =~ "\"content\":\"synthetic fallback answer\""
+    assert response.resp_body =~ "\"finish_reason\":\"stop\""
+    assert response.resp_body =~ "\"choices\":[]"
+
+    assert response.resp_body =~
+             "\"usage\":{\"completion_tokens\":4,\"prompt_tokens\":5,\"total_tokens\":9}"
+
+    assert response.resp_body =~ "data: [DONE]\n\n"
+
+    assert [captured] = FakeUpstream.requests(upstream)
+    assert captured.path == "/backend-api/codex/responses"
+    assert captured.json["stream"] == true
+    assert captured.json["reasoning"] == %{"effort" => "low"}
+    assert captured.json["text"] == %{"verbosity" => "low"}
+    assert captured.json["include"] == ["reasoning.encrypted_content"]
+
+    assert captured.json["input"] == [
+             %{
+               "type" => "message",
+               "role" => "user",
+               "content" => [
+                 %{"type" => "input_text", "text" => "synthetic fallback fallback input"}
+               ]
+             }
+           ]
+
+    refute Map.has_key?(captured.json, "stream_options")
+  end
+
+  test "POST /v1/chat/completions returns JSON for Responses-shaped fallbacks", %{
+    conn: conn
+  } do
+    upstream =
+      start_upstream(
+        FakeUpstream.json_response(%{
+          "id" => "resp_fallback_chat_json",
+          "status" => "completed",
+          "model" => "provider-gpt-test-model",
+          "output" => [
+            %{
+              "type" => "message",
+              "content" => [
+                %{"type" => "output_text", "text" => "synthetic fallback JSON answer"}
+              ]
+            }
+          ],
+          "usage" => %{"input_tokens" => 5, "output_tokens" => 4, "total_tokens" => 9}
+        })
+      )
+
+    setup = gateway_setup(upstream)
+
+    response =
+      conn
+      |> auth(setup)
+      |> post("/v1/chat/completions", %{
+        "model" => setup.model.exposed_model_id,
+        "input" => "synthetic fallback JSON fallback input",
+        "user" => "synthetic-client-identifier",
+        "reasoning" => %{"effort" => "low"},
+        "text" => %{"verbosity" => "low"},
+        "include" => ["reasoning.encrypted_content"],
+        "stream" => false
+      })
+
+    assert %{
+             "id" => "resp_fallback_chat_json",
+             "object" => "chat.completion",
+             "choices" => [
+               %{
+                 "message" => %{
+                   "role" => "assistant",
+                   "content" => "synthetic fallback JSON answer"
+                 },
+                 "finish_reason" => "stop"
+               }
+             ],
+             "usage" => %{"prompt_tokens" => 5, "completion_tokens" => 4, "total_tokens" => 9}
+           } = json_response(response, 200)
+
+    assert [captured] = FakeUpstream.requests(upstream)
+    assert captured.path == "/backend-api/codex/responses"
+    assert captured.json["stream"] == true
+    assert captured.json["reasoning"] == %{"effort" => "low"}
+    assert captured.json["text"] == %{"verbosity" => "low"}
+    assert captured.json["include"] == ["reasoning.encrypted_content"]
+
+    assert captured.json["input"] == [
+             %{
+               "type" => "message",
+               "role" => "user",
+               "content" => [
+                 %{"type" => "input_text", "text" => "synthetic fallback JSON fallback input"}
+               ]
+             }
+           ]
+
+    refute Map.has_key?(captured.json, "messages")
+    refute Map.has_key?(captured.json, "stream_options")
+
+    assert [request] = Repo.all(from(r in Request, where: r.pool_id == ^setup.pool.id))
+    assert request.status == "succeeded"
+    assert request.endpoint == "/backend-api/codex/responses"
+    assert [attempt] = Repo.all(from(a in Attempt, where: a.request_id == ^request.id))
+    assert attempt.status == "succeeded"
+
+    metadata_text =
+      inspect({request.request_metadata, attempt.response_metadata, RequestLogs.list(setup.pool)})
+
+    refute metadata_text =~ "synthetic fallback JSON fallback input"
+    refute metadata_text =~ "synthetic fallback JSON answer"
+    refute Map.has_key?(captured.json, "user")
+    refute metadata_text =~ "synthetic-client-identifier"
   end
 
   test "POST /v1/chat/completions rejects malformed fallback input before dispatch", %{

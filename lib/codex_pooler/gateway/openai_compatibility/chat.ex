@@ -5,7 +5,8 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.Chat do
   alias CodexPooler.Gateway.Payloads.RequestOptions
   alias CodexPooler.ServiceTier
 
-  @locally_unsupported_fields ~w(audio frequency_penalty logit_bias logprobs modalities n prediction presence_penalty seed stop top_logprobs user web_search_options)
+  @locally_unsupported_fields ~w(audio frequency_penalty logit_bias logprobs modalities n prediction presence_penalty seed stop top_logprobs web_search_options)
+  @responses_fallback_fields ~w(input include reasoning text)
   @service_tiers ~w(auto default flex priority scale)
   @verbosity_values ~w(low medium high)
 
@@ -44,6 +45,8 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.Chat do
          :ok <- Validation.reject_high_impact_fields(payload),
          :ok <- Validation.reject_unsupported_fields(payload, :chat),
          :ok <- Validation.require_model(payload),
+         {:ok, payload} <- discard_user_identifier(payload),
+         :ok <- reject_responses_fallback_fields_with_messages(payload),
          :ok <- reject_locally_unsupported_fields(payload),
          :ok <- validate_reasoning_effort(payload),
          :ok <- validate_service_tier(payload),
@@ -57,6 +60,15 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.Chat do
       {:ok, %{chat_payload: payload, response_payload: response_payload}}
     end
   end
+
+  defp discard_user_identifier(%{"user" => user} = payload)
+       when is_binary(user) or is_nil(user),
+       do: {:ok, Map.delete(payload, "user")}
+
+  defp discard_user_identifier(%{"user" => _user}),
+    do: {:error, Error.invalid_request("user must be a string or null", "user")}
+
+  defp discard_user_identifier(payload), do: {:ok, payload}
 
   defp reject_legacy_functions(payload) do
     cond do
@@ -115,6 +127,23 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.Chat do
       field -> {:error, Error.unsupported_parameter(field)}
     end
   end
+
+  defp reject_responses_fallback_fields_with_messages(%{"messages" => messages} = payload)
+       when is_list(messages) and messages != [] do
+    case Enum.find(@responses_fallback_fields, &Map.has_key?(payload, &1)) do
+      nil ->
+        :ok
+
+      field ->
+        {:error,
+         Error.invalid_request(
+           "Responses fields cannot be combined with non-empty messages",
+           field
+         )}
+    end
+  end
+
+  defp reject_responses_fallback_fields_with_messages(_payload), do: :ok
 
   defp validate_reasoning_effort(%{"reasoning_effort" => effort}),
     do: Validation.validate_reasoning_effort_token(effort, "reasoning_effort")
@@ -244,6 +273,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.Chat do
   defp fallback_response_payload(%{"input" => _input} = payload, _messages_error) do
     payload
     |> Map.take(Matrix.forwarded_fields(:responses))
+    |> Map.delete("stream_options")
     |> Map.put_new("instructions", "")
     |> then(&{:ok, &1})
   end
