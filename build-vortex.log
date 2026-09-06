@@ -1067,3 +1067,82 @@
 #33 29.05 Compiling lib/codex_pooler/gateway/transports/websocket/websocket_owner_session.ex (it's taking more than 10s)
 #33 29.11 Compiling lib/codex_pooler/accounting/request_replay.ex (it's taking more than 10s)
 #33 47.36 Generated codex_pooler app
+#33 53.36 ≈ tailwindcss v4.3.3
+#33 53.36 
+#33 53.70 /*! 🌼 daisyUI 5.7.28 */
+#33 54.52 Done in 1s
+#33 54.64 
+#33 54.64 23:40:39.436 [debug] Downloading esbuild from https://registry.npmjs.org/@esbuild/linux-x64/0.25.4
+#33 58.06 
+#33 58.06   ../priv/static/assets/js/app.js  1.1mb ⚠️
+#33 58.06 
+#33 58.06 ⚡ Done in 707ms
+#33 59.15 Check your digested files at "priv/static"
+#33 62.63 * assembling codex_pooler-0.7.1 on MIX_ENV=prod
+#33 62.64 * using config/runtime.exs to configure the release at runtime
+#33 64.06 * skipping elixir.bat for windows (bin/elixir.bat not found in the Elixir installation)
+#33 64.07 * skipping iex.bat for windows (bin/iex.bat not found in the Elixir installation)
+#33 67.40 
+#33 67.40 Release created at _build/prod/rel/codex_pooler
+#33 67.40 
+#33 67.40     # To start your system
+#33 67.40     _build/prod/rel/codex_pooler/bin/codex_pooler start
+#33 67.40 
+#33 67.40 Once the release is running:
+#33 67.40 
+#33 67.40     # To connect to it remotely
+#33 67.40     _build/prod/rel/codex_pooler/bin/codex_pooler remote
+#33 67.40 
+#33 67.40     # To stop it gracefully (you may also send SIGINT/SIGTERM)
+#33 67.40     _build/prod/rel/codex_pooler/bin/codex_pooler stop
+#33 67.40 
+#33 67.40 To list all commands:
+#33 67.40 
+#33 67.40     _build/prod/rel/codex_pooler/bin/codex_pooler
+#33 67.40 
+#33 DONE 67.9s
+
+#34 [app app 4/4] COPY --from=builder --chown=codex_pooler:codex_pooler /app/_build/prod/rel/codex_pooler ./
+#34 DONE 2.1s
+
+#35 [migrate] exporting to image
+#35 exporting layers
+#35 ...
+
+#36 [app] exporting to image
+#36 ...
+
+#35 [migrate] exporting to image
+#35 exporting layers 12.4s done
+#35 exporting manifest sha256:05e5b2104a118ffaa76b3d346eff5d41103a15a4c88a57c91af8910169267ba0 0.1s done
+#35 exporting config sha256:0855284a91711c6a24507b796983c43bb5f3c1c795f50cb9fde9fd8e0aa8354b 0.1s done
+#35 exporting attestation manifest sha256:53d36bd05319378fda898fa3e27e48aeda75b564ff524f501d7715b129890ba9
+#35 exporting attestation manifest sha256:53d36bd05319378fda898fa3e27e48aeda75b564ff524f501d7715b129890ba9 0.2s done
+#35 exporting manifest list sha256:8cd0d0cfde4bcfc9af40a0c452cb80f12d321b6d0f6a2984125eb5405b6a719a
+#35 exporting manifest list sha256:8cd0d0cfde4bcfc9af40a0c452cb80f12d321b6d0f6a2984125eb5405b6a719a 0.2s done
+#35 naming to docker.io/library/vortex-codex-pooler:local
+#35 naming to docker.io/library/vortex-codex-pooler:local 0.1s done
+#35 unpacking to docker.io/library/vortex-codex-pooler:local
+#35 ...
+
+#36 [app] exporting to image
+#36 exporting layers 12.4s done
+#36 exporting manifest sha256:64aef908a94fab5eccef2e22f4b5e9ce9c704fddbe1a69e5226d8ecfda93ccaa 0.1s done
+#36 exporting config sha256:0db8ec34bbe2875e66c90d7b981facac434512133b47894fae6edf1e51f84e9e 0.1s done
+#36 exporting attestation manifest sha256:e93e06e803b297a86585a16a2a18322f8309cb7951233ccb4c798c632749a91d 0.2s done
+#36 exporting manifest list sha256:4ebd96f8d9c811fc1335d78fbc9a033c35f373ca8256d1e068f0be51efa47d1d 0.2s done
+#36 naming to docker.io/library/vortex-codex-pooler:local 0.1s done
+#36 unpacking to docker.io/library/vortex-codex-pooler:local 8.4s done
+#36 DONE 21.8s
+
+#35 [migrate] exporting to image
+#35 unpacking to docker.io/library/vortex-codex-pooler:local 8.4s done
+#35 DONE 21.8s
+
+#37 [migrate] resolving provenance for metadata file
+#37 DONE 0.2s
+
+#38 [app] resolving provenance for metadata file
+#38 DONE 0.2s
+ Image vortex-codex-pooler:local Built 
+ Image vortex-codex-pooler:local Built 
