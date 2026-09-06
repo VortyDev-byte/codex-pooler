@@ -1760,6 +1760,7 @@ defmodule CodexPooler.Gateway.Runtime.Service do
     hydration = CandidateEligibility.hydrate_model_visibility(pool)
 
     hydration.visible_models
+    |> sort_media_hosts()
     |> Enum.find(&media_host_model?/1)
     |> media_host_context(hydration, requested_model)
   end
@@ -1775,7 +1776,12 @@ defmodule CodexPooler.Gateway.Runtime.Service do
 
   defp order_media_hosts(models, %RequestOptions{
          openai_compatibility: %{collect_openai_image_stream: true}
-       }) do
+       }),
+       do: sort_media_hosts(models)
+
+  defp order_media_hosts(models, %RequestOptions{}), do: models
+
+  defp sort_media_hosts(models) do
     Enum.sort_by(models, fn model ->
       metadata = ModelMetadata.metadata(model)
 
@@ -1791,8 +1797,6 @@ defmodule CodexPooler.Gateway.Runtime.Service do
       {visibility, rank, model.exposed_model_id}
     end)
   end
-
-  defp order_media_hosts(models, %RequestOptions{}), do: models
 
   defp media_host_context(%Model{} = model, hydration, requested_model) do
     Map.merge(hydration, %{

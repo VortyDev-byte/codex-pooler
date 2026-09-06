@@ -1,7 +1,9 @@
 defmodule CodexPooler.Gateway.Runtime.Streaming.OpenAIStreamCollector do
   @moduledoc false
 
-  alias CodexPooler.Gateway.OpenAICompatibility.{Images, Responses}
+  require Logger
+
+  alias CodexPooler.Gateway.OpenAICompatibility.{ImageObservation, Images, Responses}
   alias CodexPooler.Gateway.Payloads.RequestOptions
   alias CodexPooler.Gateway.Persistence.SessionContinuity
   alias CodexPooler.Gateway.Runtime.Dispatch.ResponseContext
@@ -27,9 +29,21 @@ defmodule CodexPooler.Gateway.Runtime.Streaming.OpenAIStreamCollector do
           {:ok, map()} | {:error, term()}
   def collect_image(response, %SelectedCandidateContext{} = context, finalization_callbacks) do
     collect_stream(response, context, finalization_callbacks, fn body ->
-      with {:ok, image_body} <- Images.image_response_from_sse(body) do
-        {:ok, %{status: 200, headers: json_headers(), body: image_body}}
+      case Images.image_response_from_sse(body) do
+        {:ok, image_body} ->
+          {:ok, %{status: 200, headers: json_headers(), body: image_body}}
+
+        {:error, _reason} = error ->
+          log_image_failure(body, context, response.status)
+          error
       end
+    end)
+  end
+
+  defp log_image_failure(body, context, status) do
+    Logger.info(fn ->
+      "image_collection_failure request_id=#{context.reserved.request.id} " <>
+        "attempt_id=#{context.attempt.id} observation=#{inspect(ImageObservation.from_http(status, body))}"
     end)
   end
 

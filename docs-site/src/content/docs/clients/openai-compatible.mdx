@@ -309,6 +309,10 @@ const image = await client.images.generate({
 
 The translated Images routes accept `size` values `auto`, `1024x1024`, `1024x1536` and `1536x1024`, with one image per request. This is a Codex-backed subset; it does not expose every resolution or option offered by the OpenAI Images API.
 
+Standard `gpt-image-2` generation and edit requests use the native Codex image service. Uploaded edit images are forwarded transiently as image data URLs. The provider determines the returned image dimensions; a requested size does not guarantee exact output dimensions.
+
+Requests using `mask` or `input_fidelity`, and older image model identifiers, retain the Responses image-tool translation. These options are not silently dropped or sent to the native image service. Their availability depends on the selected provider host actually producing image output; a completed text response alone is an image-generation failure.
+
 ### Audio transcriptions
 
 Audio support covers speech-to-text transcription. Text-to-speech (`POST /v1/audio/speech`), audio translation (`POST /v1/audio/translations`), and

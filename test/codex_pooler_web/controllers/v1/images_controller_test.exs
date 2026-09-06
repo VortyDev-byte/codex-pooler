@@ -74,6 +74,7 @@ defmodule CodexPoolerWeb.V1.ImagesControllerTest do
         "prompt" => "synthetic image request",
         "size" => "1024x1024",
         "quality" => "low",
+        "input_fidelity" => "high",
         "n" => 1
       })
 
@@ -121,6 +122,7 @@ defmodule CodexPoolerWeb.V1.ImagesControllerTest do
         "prompt" => "synthetic idless image request",
         "size" => "1024x1024",
         "quality" => "low",
+        "input_fidelity" => "high",
         "n" => 1
       })
 
@@ -149,6 +151,7 @@ defmodule CodexPoolerWeb.V1.ImagesControllerTest do
         "prompt" => "synthetic hidden image request",
         "size" => "1024x1024",
         "quality" => "low",
+        "input_fidelity" => "high",
         "n" => 1
       })
 

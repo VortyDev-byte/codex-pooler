@@ -3,6 +3,7 @@ defmodule CodexPooler.Gateway.Runtime.Finalization do
   Finalizes gateway runtime dispatch attempts after upstream transport returns.
   """
 
+  alias CodexPooler.Gateway.OpenAICompatibility.NativeImageResult
   alias CodexPooler.Gateway.Payloads.{CompactionTrigger, RequestOptions}
   alias CodexPooler.Gateway.Runtime.Dispatch.ResponseContext
   alias CodexPooler.Gateway.Runtime.Dispatch.SelectedCandidateContext
@@ -605,7 +606,7 @@ defmodule CodexPooler.Gateway.Runtime.Finalization do
         }
 
       {:canonical_full, _explicit_full?} ->
-        %{status: status, headers: headers, body: @canonical_full_failure_body}
+        %{status: status, headers: headers, body: canonical_failure_body(request_options)}
 
       {:mode_scoped, true} ->
         %{
@@ -626,6 +627,16 @@ defmodule CodexPooler.Gateway.Runtime.Finalization do
         }
     end
   end
+
+  defp canonical_failure_body(%RequestOptions{
+         payload_context: %{native_image_request?: true},
+         openai_compatibility: %{source_endpoint: endpoint}
+       })
+       when endpoint in ["/v1/images/generations", "/v1/images/edits"] do
+    put_in(@canonical_full_failure_body, ["error", "code"], "upstream_status")
+  end
+
+  defp canonical_failure_body(_request_options), do: @canonical_full_failure_body
 
   defp maybe_put_misalignment(error, %{misalignment: misalignment}),
     do: Map.put(error, "misalignment", misalignment)
@@ -825,6 +836,20 @@ defmodule CodexPooler.Gateway.Runtime.Finalization do
 
   defp finalize_json_response(response, context, body, callbacks) do
     cond do
+      invalid_public_native_image?(context, body) ->
+        finalize_invalid_json_response(
+          response,
+          context,
+          "image_generation_failed",
+          "upstream image response was invalid",
+          upstream_status_code: response.status,
+          usage: ResponseUsage.from_json(body),
+          before_finalize: fn ->
+            SideEffects.observe_http_response(context, response, body)
+            DispatchLifecycle.neutral_completion(context)
+          end
+        )
+
       invalid_transcription_response?(context, body) ->
         finalize_invalid_json_response(
           response,
@@ -847,6 +872,20 @@ defmodule CodexPooler.Gateway.Runtime.Finalization do
         end
     end
   end
+
+  defp invalid_public_native_image?(
+         %SelectedCandidateContext{
+           request_options: %RequestOptions{
+             payload_context: %{native_image_request?: true},
+             openai_compatibility: %{source_endpoint: endpoint}
+           }
+         },
+         body
+       )
+       when endpoint in ["/v1/images/generations", "/v1/images/edits"],
+       do: not NativeImageResult.valid?(body)
+
+  defp invalid_public_native_image?(_context, _body), do: false
 
   defp finalize_invalid_public_compaction(response, context, error) do
     finalize_invalid_compaction(response, context, error, public_compaction_error?: true)

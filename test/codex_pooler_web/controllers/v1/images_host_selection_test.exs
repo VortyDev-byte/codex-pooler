@@ -10,6 +10,30 @@ defmodule CodexPoolerWeb.V1.ImagesHostSelectionTest do
   alias CodexPooler.FakeUpstream
   alias CodexPooler.Repo
 
+  test "native image carrier prefers listed catalog host while preserving wire image model", %{
+    conn: conn
+  } do
+    upstream = start_upstream({:json, 200, %{"created" => 1, "data" => []}})
+    setup = gateway_setup(upstream)
+    host(setup, "a-review-host", %{"visibility" => "hide", "priority" => 0})
+    preferred = host(setup, "z-listed-host", %{"visibility" => "list", "priority" => 20})
+    Repo.delete!(setup.model)
+
+    response =
+      conn
+      |> auth(setup)
+      |> post("/v1/images/generations", %{"model" => "gpt-image-2", "prompt" => "synthetic image"})
+
+    assert response.status == 502
+    assert [captured] = FakeUpstream.requests(upstream)
+    assert captured.path == "/backend-api/codex/images/generations"
+    assert captured.json["model"] == "gpt-image-2"
+    assert [request] = Repo.all(Request)
+    assert request.model_id == preferred.id
+    assert [attempt] = Repo.all(Attempt)
+    assert attempt.upstream_model_id == preferred.upstream_model_id
+  end
+
   for {label, first, second} <- [
         {"listed before hidden", %{"visibility" => "hide", "priority" => 0},
          %{"visibility" => "list", "priority" => 20}},
@@ -85,7 +109,8 @@ defmodule CodexPoolerWeb.V1.ImagesHostSelectionTest do
       |> auth(setup)
       |> post("/v1/images/generations", %{
         "model" => "gpt-image-2",
-        "prompt" => "synthetic image"
+        "prompt" => "synthetic image",
+        "input_fidelity" => "high"
       })
 
     assert %{"data" => [%{"b64_json" => "c3ludGhldGlj"}]} = json_response(result, 200)

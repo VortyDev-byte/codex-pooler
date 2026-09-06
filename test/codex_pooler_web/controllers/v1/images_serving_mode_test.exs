@@ -78,7 +78,14 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
       upstream = start_upstream(image_stream(result))
       setup = setup_host(upstream, @mode)
 
-      response = image_request(auth(conn, setup), "generations", nil)
+      original_level = Logger.level()
+      Logger.configure(level: :info)
+      on_exit(fn -> Logger.configure(level: original_level) end)
+
+      {response, log} =
+        ExUnit.CaptureLog.with_log([level: :info], fn ->
+          image_request(auth(conn, setup), "generations", nil)
+        end)
 
       assert %{"error" => %{"code" => "image_generation_failed"}} = json_response(response, 502)
       assert FakeUpstream.count(upstream) == 1
@@ -92,6 +99,14 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
       assert attempt.status == "failed"
       assert attempt.upstream_status_code == 200
       assert attempt.network_error_code == "image_generation_failed"
+      assert log =~ "image_collection_failure request_id=#{request.id} attempt_id=#{attempt.id}"
+
+      expected =
+        %{absent: "no_image_item", empty: "empty_image_result", invalid: "nonstring_image_result"}[
+          @result
+        ]
+
+      assert log =~ expected
       assert attempt.response_metadata["status_code"] == 200
       assert_usage_settled_once(request, attempt)
       refute Repo.exists?(from(c in RoutingCircuitState, where: c.failure_count > 0))
@@ -213,7 +228,8 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
     post(conn, "/v1/images/generations", %{
       "model" => "gpt-image-2",
       "prompt" => "synthetic image",
-      "quality" => "medium"
+      "quality" => "medium",
+      "input_fidelity" => "high"
     })
   end
 
@@ -228,7 +244,8 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
       for {key, value} <- [
             {"model", "gpt-image-2"},
             {"prompt", "synthetic image"},
-            {"quality", "medium"}
+            {"quality", "medium"},
+            {"input_fidelity", "high"}
           ] do
         "--#{boundary}\r\nContent-Disposition: form-data; name=\"#{key}\"\r\n\r\n#{value}\r\n"
       end

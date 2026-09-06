@@ -29,7 +29,18 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.Images do
              image_payload: map()
            }}
           | {:error, Error.reason()}
-  def coerce_generation(payload, opts \\ %{}) do
+  def coerce_generation(payload, opts \\ %{})
+
+  def coerce_generation(%{"model" => "gpt-image-2"} = payload, opts)
+      when not is_map_key(payload, "input_fidelity") and not is_map_key(payload, "mask") do
+    with {:ok, payload} <- normalize_image_payload(payload),
+         :ok <- require_prompt(payload),
+         :ok <- validate_generation_only(payload) do
+      native_response(payload, "generations", opts)
+    end
+  end
+
+  def coerce_generation(payload, opts) do
     with {:ok, %{image_payload: image_payload, response_payload: response_payload}} <-
            prepare_generation(payload),
          {:ok, response} <- Responses.coerce(response_payload, opts) do
@@ -55,7 +66,18 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.Images do
              image_payload: map()
            }}
           | {:error, Error.reason()}
-  def coerce_edit(payload, opts \\ %{}) do
+  def coerce_edit(payload, opts \\ %{})
+
+  def coerce_edit(%{"model" => "gpt-image-2"} = payload, opts)
+      when not is_map_key(payload, "input_fidelity") and not is_map_key(payload, "mask") do
+    with {:ok, %{image_payload: image_payload, images: images}} <- prepare_edit(payload),
+         {:ok, response} <- native_response(image_payload, "edits", opts) do
+      images = Enum.map(images, &Map.take(&1, ["image_url"]))
+      {:ok, %{response | payload: Map.put(response.payload, "images", images)}}
+    end
+  end
+
+  def coerce_edit(payload, opts) do
     with {:ok,
           %{
             image_payload: image_payload,
@@ -70,6 +92,24 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.Images do
       {:ok,
        response |> Map.put(:payload, response_payload) |> Map.put(:image_payload, image_payload)}
     end
+  end
+
+  defp native_response(payload, operation, opts) do
+    endpoint = "/backend-api/codex/images/" <> operation
+    native = payload |> Map.take(~w(model prompt background quality size)) |> Map.put("n", 1)
+
+    options =
+      opts
+      |> Map.new()
+      |> Map.merge(%{
+        upstream_endpoint: endpoint,
+        native_image_request?: true,
+        collect_openai_image_stream: false
+      })
+      |> RequestOptions.build(endpoint, native)
+
+    {:ok,
+     %{endpoint: endpoint, payload: native, image_payload: payload, request_options: options}}
   end
 
   @spec image_response_from_sse(binary()) :: {:ok, map()} | {:error, Error.reason()}
