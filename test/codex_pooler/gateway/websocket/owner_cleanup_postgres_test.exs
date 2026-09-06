@@ -248,9 +248,23 @@ defmodule CodexPooler.Gateway.Websocket.OwnerCleanupPostgresTest do
 
   defp start_peer(suffix) do
     name = :"owner_cleanup_#{suffix}_#{System.unique_integer([:positive])}"
-    {:ok, pid, peer_node} = :peer.start_link(%{name: name, args: [~c"+S", ~c"2:2"]})
+    # These disposable peers stop independently. A partial peer disconnect must
+    # not make global evict the coordinator while the other peer is still live.
+    {:ok, pid, peer_node} =
+      :peer.start_link(%{
+        name: name,
+        args: [~c"+S", ~c"2:2", ~c"-kernel", ~c"prevent_overlapping_partitions", ~c"false"]
+      })
+
     Process.unlink(pid)
     on_exit(fn -> if Process.alive?(pid), do: :peer.stop(pid) end)
+
+    assert {:ok, false} =
+             :erpc.call(peer_node, :application, :get_env, [
+               :kernel,
+               :prevent_overlapping_partitions
+             ])
+
     :ok = :erpc.call(peer_node, :code, :add_paths, [:code.get_path()])
     :ok = call(peer_node, :bootstrap, [Application.get_all_env(:codex_pooler), Repo.config()])
     peer_node
