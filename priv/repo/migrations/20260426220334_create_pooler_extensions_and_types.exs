@@ -55,7 +55,10 @@ defmodule CodexPooler.Repo.Migrations.CreatePoolerExtensionsAndTypes do
 
   defp statements(sql) do
     sql
-    |> String.split(~r/; *\n/,
+    # Accept both LF and CRLF checkouts. Otherwise a Windows working tree
+    # leaves two DDL commands in one prepared statement, which PostgreSQL
+    # rejects during a fresh Docker bootstrap.
+    |> String.split(~r/;\s*/,
       trim: true
     )
     |> Enum.map(&String.trim/1)
