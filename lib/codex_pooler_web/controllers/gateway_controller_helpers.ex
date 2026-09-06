@@ -280,6 +280,10 @@ defmodule CodexPoolerWeb.GatewayControllerHelpers do
     |> json(body)
   end
 
+  def send_error(conn, %{code: :api_key_policy_limit_exceeded, message: _message} = error) do
+    send_error(conn, Map.put(error, :status, 403))
+  end
+
   def send_error(conn, %{code: code, message: message}) do
     send_error(conn, %{status: 401, code: code, message: message})
   end
