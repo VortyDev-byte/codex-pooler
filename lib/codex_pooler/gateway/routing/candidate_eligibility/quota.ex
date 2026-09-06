@@ -186,8 +186,14 @@ defmodule CodexPooler.Gateway.Routing.CandidateEligibility.Quota do
       )
   end
 
-  @spec provider_permission_current?(Model.t(), CandidateEligibility.candidate(), RouteState.t()) ::
+  @spec provider_permission_current?(
+          Model.t(),
+          CandidateEligibility.candidate(),
+          RouteState.t() | nil
+        ) ::
           boolean()
+  def provider_permission_current?(_model, _candidate, nil), do: true
+
   def provider_permission_current?(model, {assignment, identity} = candidate, route_state) do
     if windowless_candidate?(model, candidate, route_state) do
       with {:ok, candidates} <- CandidateEligibility.routable_candidates(model),

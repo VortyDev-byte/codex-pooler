@@ -98,7 +98,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows.Routing do
 
   defp availability_fallback(snapshot, raw_windows, ordinary) do
     windowless_evidence? =
-      windowless_eligible_evidence?(snapshot.raw_windows, ordinary.selection, snapshot.as_of)
+      windowless_snapshot_evidence?(snapshot, raw_windows, ordinary.selection)
 
     cond do
       current_available?(snapshot) and no_raw_account_windows?(raw_windows) and
@@ -115,6 +115,23 @@ defmodule CodexPooler.Upstreams.Quota.Windows.Routing do
         ordinary
     end
   end
+
+  defp windowless_snapshot_evidence?(snapshot, raw_windows, selection) do
+    windowless_eligible_evidence?(raw_windows, selection, snapshot.as_of) and
+      not account_window_from_availability?(snapshot)
+  end
+
+  defp account_window_from_availability?(%RoutingQuotaSnapshot{
+         raw_windows: windows,
+         availability: %{observed_at: observed_at}
+       }) do
+    Enum.any?(windows, fn window ->
+      window.quota_scope == "account" and window.source == "codex_usage_api" and
+        window.observed_at == observed_at
+    end)
+  end
+
+  defp account_window_from_availability?(_snapshot), do: false
 
   defp windowless_available_result(selection) do
     %{
