@@ -31,8 +31,8 @@ defmodule CodexPoolerWeb.V1.RouteAuthTest do
     {:post, "/v1/files", %{"purpose" => "user_data"}},
     {:post, "/v1/audio/transcriptions", %{"model" => "gpt-4o-transcribe"}},
     {:post, "/v1/images/generations",
-     %{"model" => "gpt-image-1", "prompt" => "synthetic image request"}},
-    {:post, "/v1/images/edits", %{"model" => "gpt-image-1", "prompt" => "synthetic edit request"}}
+     %{"model" => "gpt-image-2", "prompt" => "synthetic image request"}},
+    {:post, "/v1/images/edits", %{"model" => "gpt-image-2", "prompt" => "synthetic edit request"}}
   ]
 
   @unsupported_routes UnsupportedRoutes.test_routes()

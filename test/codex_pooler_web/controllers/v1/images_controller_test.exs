@@ -14,7 +14,7 @@ defmodule CodexPoolerWeb.V1.ImagesControllerTest do
 
   test "image controller actions mark gateway execution for permission enforcement", %{conn: conn} do
     upstream = start_upstream(image_success_stream("SHOULD_NOT_DISPATCH", nil))
-    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-1")
+    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-2")
     {:ok, auth_context} = Access.authenticate_authorization_header(setup.authorization)
 
     setup.pool
@@ -64,7 +64,7 @@ defmodule CodexPoolerWeb.V1.ImagesControllerTest do
     conn: conn
   } do
     upstream = start_upstream(image_success_stream("B64_GENERATED", "refined prompt"))
-    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-1")
+    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-2")
 
     conn =
       conn
@@ -89,7 +89,7 @@ defmodule CodexPoolerWeb.V1.ImagesControllerTest do
     assert captured.path == "/backend-api/codex/responses"
     assert captured.json["model"] == setup.model.upstream_model_id
     assert captured.json["stream"] == true
-    assert [%{"type" => "image_generation", "model" => "gpt-image-1"}] = captured.json["tools"]
+    assert [%{"type" => "image_generation", "model" => "gpt-image-2"}] = captured.json["tools"]
 
     assert [request] = Repo.all(from(r in Request, where: r.pool_id == ^setup.pool.id))
     assert request.endpoint == "/backend-api/codex/responses"
@@ -111,7 +111,7 @@ defmodule CodexPoolerWeb.V1.ImagesControllerTest do
     conn: conn
   } do
     upstream = start_upstream(image_success_stream("B64_IDLESS", nil, id: false))
-    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-1")
+    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-2")
 
     conn =
       conn
@@ -185,7 +185,7 @@ defmodule CodexPoolerWeb.V1.ImagesControllerTest do
 
   test "POST /v1/images/edits sends uploaded image as transient input_image", %{conn: conn} do
     upstream = start_upstream(image_success_stream("B64_EDITED", "edited prompt"))
-    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-1")
+    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-2")
     image_bytes = <<137, 80, 78, 71, 13, 10, 26, 10, 0, 1, 2, 3>>
 
     conn =
@@ -220,7 +220,7 @@ defmodule CodexPoolerWeb.V1.ImagesControllerTest do
 
   test "POST /v1/images/generations rejects invalid image params before dispatch", %{conn: conn} do
     upstream = start_upstream(image_success_stream("SHOULD_NOT_DISPATCH", nil))
-    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-1")
+    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-2")
 
     conn =
       conn
@@ -244,9 +244,9 @@ defmodule CodexPoolerWeb.V1.ImagesControllerTest do
          conn: conn
        } do
     upstream = start_upstream(image_success_stream("SHOULD_NOT_DISPATCH", nil))
-    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-1")
+    setup = upstream |> gateway_setup() |> use_image_model!("gpt-image-2")
 
-    conn = conn |> auth(setup) |> post("/v1/images/variations", %{"model" => "gpt-image-1"})
+    conn = conn |> auth(setup) |> post("/v1/images/variations", %{"model" => "gpt-image-2"})
 
     assert %{"error" => %{"code" => "unsupported_endpoint"}} = json_response(conn, 404)
     assert FakeUpstream.requests(upstream) == []

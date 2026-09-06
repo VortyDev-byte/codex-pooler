@@ -1106,23 +1106,25 @@ defmodule CodexPooler.Gateway.OpenAICompatibilityTest do
   end
 
   @tag :responses_coercion
-  test "Images generation validates parameters and builds an image_generation Responses payload" do
-    payload = %{
-      "model" => "gpt-image-1",
-      "prompt" => "synthetic image request",
-      "size" => "1024x1024",
-      "quality" => "high",
-      "background" => "transparent",
-      "input_fidelity" => "high",
-      "n" => 1
-    }
+  test "Images generation preserves latest and legacy model slugs in Responses payloads" do
+    for model <- ["gpt-image-2", "gpt-image-1"] do
+      payload = %{
+        "model" => model,
+        "prompt" => "synthetic image request",
+        "size" => "1024x1024",
+        "quality" => "high",
+        "background" => "opaque",
+        "input_fidelity" => "high",
+        "n" => 1
+      }
 
-    assert {:ok, result} = Images.coerce_generation(payload)
-    assert result.endpoint == "/backend-api/codex/responses"
-    assert result.payload["model"] == "gpt-image-1"
-    assert result.payload["stream"] == true
-    assert [%{"type" => "image_generation", "quality" => "high"}] = result.payload["tools"]
-    refute Map.has_key?(result.payload, "tool_choice")
+      assert {:ok, result} = Images.coerce_generation(payload)
+      assert result.endpoint == "/backend-api/codex/responses"
+      assert result.payload["model"] == model
+      assert result.payload["stream"] == true
+      assert [%{"type" => "image_generation", "quality" => "high"}] = result.payload["tools"]
+      refute Map.has_key?(result.payload, "tool_choice")
+    end
   end
 
   @tag :responses_coercion
@@ -1256,7 +1258,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibilityTest do
     }
 
     image_payload = %{
-      "model" => "gpt-image-1",
+      "model" => "gpt-image-2",
       "prompt" => "synthetic image request"
     }
 
@@ -1668,7 +1670,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibilityTest do
   test "invalid image parameters return deterministic reason maps" do
     assert {:error, reason} =
              Images.coerce_generation(%{
-               "model" => "gpt-image-1",
+               "model" => "gpt-image-2",
                "prompt" => "synthetic image request",
                "size" => "2048x2048"
              })
@@ -5269,7 +5271,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibilityTest do
             %{"type" => "image_generation"},
             %{
               "type" => "image_generation",
-              "model" => "gpt-image-1",
+              "model" => "gpt-image-2",
               "size" => "1024x1024",
               "quality" => "high",
               "background" => "transparent",

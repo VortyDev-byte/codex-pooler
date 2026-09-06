@@ -210,7 +210,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibilityAccountingTest do
        %{"purpose" => "fine_tuning", "file" => %{"filename" => "upload", "bytes" => 12}}, 400,
        "invalid_request"},
       {:post, "/v1/images/generations",
-       %{"model" => "gpt-image-1", "prompt" => @raw_prompt_sentinel, "size" => "2048x2048"}, 400,
+       %{"model" => "gpt-image-2", "prompt" => @raw_prompt_sentinel, "size" => "2048x2048"}, 400,
        "invalid_request"}
     ]
 
