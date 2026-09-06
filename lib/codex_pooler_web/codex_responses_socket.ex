@@ -3225,12 +3225,27 @@ defmodule CodexPoolerWeb.CodexResponsesSocket do
   end
 
   defp cancel_tracked_response_tasks(state, reason) do
-    state
-    |> Map.get(:tasks, MapSet.new())
-    |> Enum.reject(&response_task_activity?(state, &1))
-    |> cancel_response_tasks(reason)
+    tasks =
+      state
+      |> Map.get(:tasks, MapSet.new())
+      |> Enum.reject(&response_task_activity?(state, &1))
+
+    cancel_response_tasks(tasks, reason)
+
+    if reason == :owner_drained do
+      Enum.each(tasks, &cleanup_drained_admission(state, &1))
+    end
 
     state
+  end
+
+  defp cleanup_drained_admission(state, task) do
+    if context = Map.get(Map.get(state, :direct_cleanup_contexts, %{}), task) do
+      case DirectCleanup.cancel(context, "owner_drained") do
+        :none -> :ok
+        result -> log_interrupt_failure(result, state)
+      end
+    end
   end
 
   defp cancel_response_tasks(tasks, reason) do
@@ -3386,6 +3401,7 @@ defmodule CodexPoolerWeb.CodexResponsesSocket do
 
   defp cancel_response_task_activity(state, task_pid, :owner_drained) do
     if owner_forwarded_socket?(state) do
+      cancel_pending_owner_admission(state, task_pid, "owner_drained")
       :ok = Adapter.cancel_owner_turn(state, task_pid, :owner_drained)
       :await_worker
     else
@@ -3393,6 +3409,15 @@ defmodule CodexPoolerWeb.CodexResponsesSocket do
 
       :ok = Websocket.close_websocket_session(Map.get(state, :upstream_websocket_session))
       :kill_worker
+    end
+  end
+
+  defp cancel_pending_owner_admission(state, task_pid, reason) do
+    if context = Map.get(Map.get(state, :direct_cleanup_contexts, %{}), task_pid) do
+      case DirectCleanup.cancel_pending(context, reason) do
+        :none -> :ok
+        result -> log_interrupt_failure(result, state)
+      end
     end
   end
 
@@ -3432,6 +3457,15 @@ defmodule CodexPoolerWeb.CodexResponsesSocket do
 
   defp cleanup_websocket_session(reason, %{websocket_owner_downstream: downstream} = state)
        when is_map(downstream) do
+    interrupt_reason =
+      if reason == :shutdown or match?({:shutdown, _}, reason),
+        do: "owner_drained",
+        else: "client_disconnected"
+
+    Enum.each(Map.get(state, :tasks, MapSet.new()), fn task_pid ->
+      cancel_pending_owner_admission(state, task_pid, interrupt_reason)
+    end)
+
     Adapter.cleanup_owner_session(state, reason)
   end
 
@@ -3465,14 +3499,15 @@ defmodule CodexPoolerWeb.CodexResponsesSocket do
   end
 
   defp put_direct_context(state, pid, ref, parent) do
-    if not owner_forwarded_socket?(state) and
-         match?(%{id: id} when is_binary(id), Map.get(state, :codex_session)) do
+    if match?(%{id: id} when is_binary(id), Map.get(state, :codex_session)) do
       context = %DirectCleanup{
-        registry: response_task_activity_registry(state),
+        registry: {response_task_activity_registry(state), node(pid)},
         task: pid,
         ref: ref,
         parent: parent,
         session_id: state.codex_session.id,
+        owner_binding: pre_attempt_owner_binding(state),
+        owner_pid: Map.get(state, :websocket_owner_pid),
         before_ready:
           Keyword.get(
             Map.get(state, :response_task_start_options, []),
@@ -3483,6 +3518,16 @@ defmodule CodexPoolerWeb.CodexResponsesSocket do
       Map.update(state, :direct_cleanup_contexts, %{pid => context}, &Map.put(&1, pid, context))
     else
       state
+    end
+  end
+
+  defp pre_attempt_owner_binding(state) do
+    if owner_forwarded_socket?(state) do
+      %{
+        owner_instance_id: state.codex_session.owner_instance_id,
+        owner_lease_token: state.websocket_owner_lease_token,
+        downstream_epoch: state.websocket_owner_downstream.epoch
+      }
     end
   end
 

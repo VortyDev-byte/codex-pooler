@@ -12,6 +12,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
   alias CodexPooler.Gateway.Runtime.Finalization.Interruption
   alias CodexPooler.Gateway.Transports.Streaming.RuntimeAdmissionProof
   alias CodexPooler.Gateway.Transports.Streaming.StreamProtocol
+  alias CodexPooler.Gateway.Transports.Websocket.ActivityRegistry
   alias CodexPooler.Gateway.Transports.Websocket.ForwardedOwnerRequestHandoff
   alias CodexPooler.Gateway.Transports.Websocket.ForwardedSendWitnessV1
   alias CodexPooler.Gateway.Transports.Websocket.NativeCompactionAdmission
@@ -33,6 +34,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
 
   alias CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerAdmissionControlV1
   alias CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerContract
+  alias CodexPooler.Gateway.Websocket.DirectCleanup
   alias CodexPooler.Gateway.Websocket.OwnerCleanup
 
   defmodule ForwardedSendWitnessState do
@@ -93,7 +95,9 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
     :native_compaction_admission,
     :native_compaction_admission_downstream,
     :forwarded_send_witness,
-    provisional_issuances: []
+    provisional_issuances: [],
+    pending_admissions: %{},
+    pending_admission_monitors: %{}
   ]
 
   @type downstream :: %{
@@ -1026,6 +1030,11 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
           owner_call_timeout()
         )
 
+  @doc false
+  @spec register_pre_attempt_admission_v1(pid(), DirectCleanup.t()) :: :ok | {:error, atom()}
+  def register_pre_attempt_admission_v1(owner, %DirectCleanup{} = context),
+    do: GenServer.call(owner, {:register_pre_attempt_admission_v1, context}, owner_call_timeout())
+
   @impl GenServer
   def init(opts) do
     sensitivity = NativeCompactionTrace.configure_process_sensitivity(:owner_session)
@@ -1140,6 +1149,26 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
       }}, state}
   end
 
+  def handle_call({:register_pre_attempt_admission_v1, context}, _from, state) do
+    binding = context.owner_binding
+
+    if not state.draining? and context.session_id == state.codex_session_id and
+         binding.owner_instance_id == state.owner_instance_id and
+         binding.owner_lease_token == state.owner_lease_token and
+         match?(
+           %{pid: pid, epoch: epoch}
+           when pid == context.parent and epoch == binding.downstream_epoch,
+           state.downstream
+         ) do
+      state = forget_pending_admission(state, context.task)
+      monitor = Process.monitor(context.task)
+      state = put_in(state.pending_admissions[context.task], context)
+      {:reply, :ok, put_in(state.pending_admission_monitors[context.task], monitor)}
+    else
+      {:reply, {:error, if(state.draining?, do: :owner_drained, else: :stale_owner)}, state}
+    end
+  end
+
   def handle_call(:owner_status, _from, state) do
     {:reply,
      {:ok,
@@ -1167,6 +1196,8 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
   end
 
   def handle_call(:drain, _from, state) do
+    state = cancel_pending_admissions(state, "owner_drained")
+
     state = %{
       state
       | termination_cleanup_witness: OwnerCleanup.from_owner_state(state)
@@ -1575,6 +1606,11 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
         reply_sent?: false
       }
 
+      if context = Map.get(state.pending_admissions, Map.get(downstream, :owner_turn_id)),
+        do: ActivityRegistry.handoff_direct_cleanup(context)
+
+      state = forget_pending_admission(state, Map.get(downstream, :owner_turn_id))
+
       {:noreply,
        %{
          state
@@ -1859,6 +1895,16 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
   end
 
   @impl GenServer
+  def handle_cast({:finish_pre_attempt_admission_v1, task, ref}, state) do
+    state =
+      case Map.get(state.pending_admissions, task) do
+        %{ref: ^ref} -> forget_pending_admission(state, task)
+        _ -> state
+      end
+
+    {:noreply, state}
+  end
+
   def handle_cast(:begin_drain, state) do
     {:noreply,
      state
@@ -2204,6 +2250,21 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
     end
   end
 
+  def handle_info({:DOWN, monitor, :process, task, reason}, state)
+      when is_map_key(state.pending_admissions, task) do
+    if Map.get(state.pending_admission_monitors, task) == monitor do
+      cancel_admitted_context(
+        state,
+        Map.fetch!(state.pending_admissions, task),
+        pending_admission_exit_reason(reason)
+      )
+
+      {:noreply, forget_pending_admission(state, task)}
+    else
+      {:noreply, state}
+    end
+  end
+
   def handle_info({:DOWN, monitor, :process, restorer, _reason}, state) do
     sensitivity = state.native_compaction_trace_sensitivity
 
@@ -2221,6 +2282,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
   @impl GenServer
   def terminate(reason, state) do
     state = cancel_owner_renewal(state)
+    state = cancel_pending_admissions(state, Atom.to_string(owner_exit_reason(reason, state)))
     terminate_predecessor_task(state.active_turn)
     _state = clear_pending_handoff(state)
     owner_exit_reason = owner_exit_reason(reason, state)
@@ -2240,6 +2302,47 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
 
     :ok
   end
+
+  defp cancel_pending_admissions(state, reason) do
+    Enum.each(state.pending_admissions, fn {_task, context} ->
+      log_admitted_cleanup(DirectCleanup.terminate_admission(context, reason), state)
+    end)
+
+    Enum.reduce(Map.keys(state.pending_admissions), state, &forget_pending_admission(&2, &1))
+  end
+
+  defp cancel_admitted_context(state, context, reason) do
+    log_admitted_cleanup(DirectCleanup.cancel(context, reason), state)
+  end
+
+  defp log_admitted_cleanup(result, state) do
+    case result do
+      {:error, failure} ->
+        Logger.owner_exit_persistence_failure(
+          :interrupt_codex_session,
+          state,
+          :owner_drained,
+          failure
+        )
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp forget_pending_admission(state, task) do
+    if monitor = Map.get(state.pending_admission_monitors, task),
+      do: Process.demonitor(monitor, [:flush])
+
+    %{
+      state
+      | pending_admissions: Map.delete(state.pending_admissions, task),
+        pending_admission_monitors: Map.delete(state.pending_admission_monitors, task)
+    }
+  end
+
+  defp pending_admission_exit_reason({:shutdown, :owner_drained}), do: "owner_drained"
+  defp pending_admission_exit_reason(_reason), do: "client_disconnected"
 
   defp owner_reuse_status(pid, opts) do
     expected = %{

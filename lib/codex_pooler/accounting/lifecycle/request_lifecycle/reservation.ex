@@ -106,6 +106,7 @@ defmodule CodexPooler.Accounting.RequestLifecycle.Reservation do
         requested_model: attr(opts, :requested_model) || model.exposed_model_id,
         runtime_revocation_epoch: captured_epoch,
         semantic_turn_digest: attr(opts, :semantic_turn_digest),
+        original_request_claim: attr(opts, :original_request_claim),
         replay_claim_digest: attr(opts, :replay_claim_digest),
         anchor_present?: attr(opts, :anchor_present?) == true,
         after_locks: attr(opts, :after_locks),

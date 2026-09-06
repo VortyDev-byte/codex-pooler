@@ -1,7 +1,7 @@
 defmodule CodexPooler.Gateway.Transports.Websocket.ActivityRegistry.Entry do
   @moduledoc false
 
-  @type kind :: :direct | :proxy
+  @type kind :: :direct | :proxy | :local_owner
   @type status :: :registered | :admitted | :cancelling
   @type t :: %{
           required(:token) => reference(),
@@ -20,7 +20,8 @@ defmodule CodexPooler.Gateway.Transports.Websocket.ActivityRegistry.Entry do
             required(:pending?) => boolean(),
             required(:receipt) => CodexPooler.Gateway.Websocket.DirectCleanup.receipt() | nil,
             required(:waiters) => [GenServer.from()],
-            optional(:consumed?) => boolean()
+            optional(:consumed?) => boolean(),
+            optional(:cancel_reason) => String.t()
           }
         }
 

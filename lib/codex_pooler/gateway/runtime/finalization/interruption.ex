@@ -52,7 +52,10 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Interruption do
       request = request_for_update(receipt.request_id)
 
       if direct_receipt_matches?(session, request, receipt) and
-           not replacement_turn_active?(receipt.session_id, receipt.request_id) do
+           request.status in ["accepted", "in_progress"] and
+           not replacement_turn_active?(receipt.session_id, receipt.request_id) and
+           pre_attempt_owner_receipt_matches?(session, request, receipt) do
+        request = mark_pre_attempt_owner_drain(request, receipt, reason)
         interrupt_direct_locked(session, request, reason)
       end
     end)
@@ -68,6 +71,63 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Interruption do
         request.api_key_id == receipt.api_key_id and request.pool_id == session.pool_id
 
   defp direct_receipt_matches?(_session, _request, _receipt), do: false
+
+  defp pre_attempt_owner_receipt_matches?(
+         session,
+         request,
+         %{
+           owner_binding: %{
+             owner_instance_id: owner,
+             owner_lease_token: token,
+             downstream_epoch: epoch
+           }
+         } = receipt
+       )
+       when is_binary(owner) and is_binary(token) and is_integer(epoch) and epoch > 0 do
+    metadata = Map.get(request.request_metadata, "websocket_owner_forwarding", %{})
+
+    session.owner_lease_token == token and
+      session.owner_instance_id == owner and
+      current_owner_lease?(session.owner_lease_expires_at) and
+      metadata["owner_instance_id"] == owner and
+      metadata["downstream_epoch"] == epoch and
+      admitted_attempt_matches?(latest_attempt_for_update(request.id), receipt)
+  end
+
+  defp pre_attempt_owner_receipt_matches?(_session, request, receipt),
+    do:
+      is_nil(Map.get(receipt, :owner_binding)) and
+        not Map.has_key?(request.request_metadata, "websocket_owner_forwarding")
+
+  defp current_owner_lease?(%DateTime{} = expiry), do: DateTime.compare(expiry, now()) == :gt
+  defp current_owner_lease?(_expiry), do: false
+
+  defp admitted_attempt_matches?(nil, _receipt), do: true
+
+  defp admitted_attempt_matches?(%Attempt{} = attempt, receipt),
+    do:
+      attempt.id == Map.get(receipt, :attempt_id) and
+        attempt.replay_generation == Map.get(receipt, :replay_generation) and
+        attempt.transport == "websocket"
+
+  defp mark_pre_attempt_owner_drain(
+         %{status: status} = request,
+         %{owner_binding: binding},
+         "owner_drained"
+       )
+       when is_map(binding) and status in ["accepted", "in_progress"] do
+    if is_nil(latest_attempt_for_update(request.id)) do
+      request
+      |> Ecto.Changeset.change(
+        request_metadata: Map.put(request.request_metadata, "websocket_pre_attempt_drain", true)
+      )
+      |> Repo.update!()
+    else
+      request
+    end
+  end
+
+  defp mark_pre_attempt_owner_drain(request, _receipt, _reason), do: request
 
   defp interrupt_direct_locked(session, request, reason) do
     turn = Repo.get_by(CodexTurn, request_id: request.id)

@@ -50,6 +50,73 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerForwarder do
   @type submitted_request_result ::
           request_result() | {:websocket_owner_submission_accepted, request_result()}
   @type reconnect_action :: :preflight | :cancel
+
+  @doc false
+  @spec register_pre_attempt_admission(
+          CodexSession.t(),
+          CodexPooler.Gateway.Websocket.DirectCleanup.t(),
+          submit_opts()
+        ) :: :ok | {:error, term()}
+  def register_pre_attempt_admission(session, context, opts) do
+    with {:ok, owner} <- resolve_owner(session, opts) do
+      case owner do
+        {:local, _} ->
+          remote_register_pre_attempt_admission_v1(session.id, context)
+
+        {:remote, node, _} ->
+          call_remote(
+            node,
+            :remote_register_pre_attempt_admission_v1,
+            [session.id, context],
+            opts
+          )
+      end
+    end
+  end
+
+  @doc false
+  @spec remote_register_pre_attempt_admission_v1(
+          Ecto.UUID.t(),
+          CodexPooler.Gateway.Websocket.DirectCleanup.t()
+        ) :: :ok | {:error, term()}
+  def remote_register_pre_attempt_admission_v1(session_id, context) do
+    with {:ok, owner} <- WebsocketOwnerSession.lookup(session_id) do
+      WebsocketOwnerSession.register_pre_attempt_admission_v1(owner, context)
+    end
+  end
+
+  @doc false
+  @spec finish_pre_attempt_admission(
+          CodexSession.t(),
+          CodexPooler.Gateway.Websocket.DirectCleanup.t(),
+          submit_opts()
+        ) :: :ok | {:error, term()}
+  def finish_pre_attempt_admission(session, context, opts) do
+    with {:ok, owner} <- resolve_owner(session, opts) do
+      case owner do
+        {:local, _} ->
+          remote_finish_pre_attempt_admission_v1(session.id, context.task, context.ref)
+
+        {:remote, node, _} ->
+          call_remote(
+            node,
+            :remote_finish_pre_attempt_admission_v1,
+            [session.id, context.task, context.ref],
+            opts
+          )
+      end
+    end
+  end
+
+  @doc false
+  @spec remote_finish_pre_attempt_admission_v1(Ecto.UUID.t(), pid(), reference()) ::
+          :ok | {:error, term()}
+  def remote_finish_pre_attempt_admission_v1(session_id, task, ref) do
+    with {:ok, owner} <- WebsocketOwnerSession.lookup(session_id) do
+      GenServer.cast(owner, {:finish_pre_attempt_admission_v1, task, ref})
+    end
+  end
+
   @type reconnect_control :: %{
           required(:version) => 1,
           required(:action) => reconnect_action(),

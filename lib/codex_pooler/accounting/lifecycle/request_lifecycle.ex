@@ -1084,6 +1084,7 @@ defmodule CodexPooler.Accounting.RequestLifecycle do
            returning: true
          ) do
       {:ok, attempt} ->
+        if callback = Map.get(attrs, :admitted_attempt_bind), do: callback.(attempt)
         IdentitySnapshot.persist_request_identity_snapshot(request, assignment, attrs)
         RequestLogFacts.record_attempt_written!(attempt)
         attempt

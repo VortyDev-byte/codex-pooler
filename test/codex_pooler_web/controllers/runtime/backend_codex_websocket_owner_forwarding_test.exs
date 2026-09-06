@@ -2506,6 +2506,7 @@ defmodule CodexPoolerWeb.Runtime.BackendCodexWebsocketOwnerForwardingTest do
       )
 
     remote_state = remote_owner_state(state, remote_node, node_opts)
+
     opts = owner_response_options(remote_state, node_opts)
     barrier_ref = make_ref()
     parent = self()
@@ -2815,6 +2816,11 @@ defmodule CodexPoolerWeb.Runtime.BackendCodexWebsocketOwnerForwardingTest do
 
     try do
       payload = websocket_payload(setup, "owner turn budget")
+
+      :sys.replace_state(
+        state.websocket_owner_pid,
+        &%{&1 | owner_instance_id: Atom.to_string(remote_node)}
+      )
 
       assert {:ok, remote_state} =
                CodexResponsesSocket.handle_in({payload, [opcode: :text]}, remote_state)
@@ -6609,7 +6615,7 @@ defmodule CodexPoolerWeb.Runtime.BackendCodexWebsocketOwnerForwardingTest do
     end
   end
 
-  test "owner transport session mismatch rejects response.create before upstream submit" do
+  test "owner transport session mismatch rejects response.create before request admission" do
     upstream = start_upstream(FakeUpstream.json_response(%{"unexpected" => true}))
     setup = gateway_setup(upstream)
     {:ok, auth} = Access.authenticate_authorization_header(setup.authorization)
@@ -6637,14 +6643,14 @@ defmodule CodexPoolerWeb.Runtime.BackendCodexWebsocketOwnerForwardingTest do
       assert FakeUpstream.count(upstream) == 0
       assert FakeUpstream.websocket_connection_count(upstream) == 0
 
-      assert [request] = request_logs(setup.pool.id)
-      assert request.status == "failed"
-      assert request.response_status_code == 409
-      assert request.last_error_code == "stale_owner"
+      assert request_logs(setup.pool.id) == []
 
-      assert [attempt] = Repo.all(from a in Attempt, where: a.request_id == ^request.id)
-      assert attempt.status == "failed"
-      assert attempt.network_error_code == "stale_owner"
+      refute Repo.exists?(
+               from a in Attempt,
+                 join: r in Request,
+                 on: r.id == a.request_id,
+                 where: r.pool_id == ^setup.pool.id
+             )
     after
       CodexResponsesSocket.terminate(:closed, state)
       CodexResponsesSocket.terminate(:closed, other_state)

@@ -7,6 +7,7 @@ defmodule CodexPooler.Accounting.ClientRetry do
 
   alias CodexPooler.Accounting.{
     Attempt,
+    LedgerEntry,
     Request,
     RequestClientRetryLink,
     RequestReplayEntitlement
@@ -298,7 +299,7 @@ defmodule CodexPooler.Accounting.ClientRetry do
             where: turn.codex_session_id == ^session.id and turn.semantic_turn_digest == ^digest
         )
 
-    if existing_turn? do
+    if existing_turn? or not is_nil(claimed_original(session, api_key, input)) do
       case lock_eligible_predecessor!(session, api_key, model, input) do
         {:ok, %{request: request}} ->
           {:ok, %{replay_generation: 0, client_retry_predecessor_request_id: request.id}}
@@ -320,8 +321,8 @@ defmodule CodexPooler.Accounting.ClientRetry do
           {:ok,
            %{
              request: Request.t(),
-             turn: CodexTurn.t(),
-             attempt: Attempt.t(),
+             turn: CodexTurn.t() | nil,
+             attempt: Attempt.t() | nil,
              db_now: DateTime.t()
            }}
           | {:error, atom()}
@@ -333,9 +334,8 @@ defmodule CodexPooler.Accounting.ClientRetry do
       )
       when is_map(input) do
     with :ok <- reject_anchor(input),
-         {:ok, turn} <- lock_predecessor_turn(session.id, input),
-         %Request{} = request <- lock_request!(turn.request_id),
-         %Attempt{} = attempt <- lock_attempt(turn.final_attempt_id, request.id),
+         {:ok, turn, request} <- lock_predecessor(session, api_key, input),
+         attempt <- lock_attempt(if(turn, do: turn.final_attempt_id), request.id),
          owner_lease <- lock_owner_lease(session),
          lineage <- lock_lineage(request.id),
          entitlement <- lock_entitlement(request.id),
@@ -357,10 +357,41 @@ defmodule CodexPooler.Accounting.ClientRetry do
            ) do
       {:ok, %{request: request, turn: turn, attempt: attempt, db_now: db_now}}
     else
-      nil -> {:error, :terminal_predecessor}
       {:error, _reason} = error -> error
     end
   end
+
+  defp lock_predecessor(session, api_key, input) do
+    case claimed_original(session, api_key, input) do
+      %Request{} = request ->
+        {:ok, nil, lock_request!(request.id)}
+
+      nil ->
+        with {:ok, turn} <- lock_predecessor_turn(session.id, input) do
+          {:ok, turn, lock_request!(turn.request_id)}
+        end
+    end
+  end
+
+  defp claimed_original(session, api_key, %{
+         original_request_claim: claim,
+         semantic_turn_digest: digest
+       })
+       when is_binary(claim) and is_binary(digest) and byte_size(digest) == @digest_bytes do
+    if claim == "codex-turn:" <> Base.url_encode64(digest, padding: false) do
+      Repo.one(
+        from request in Request,
+          left_join: turn in CodexTurn,
+          on: turn.request_id == request.id,
+          where:
+            request.correlation_id == ^claim and request.api_key_id == ^api_key.id and
+              request.pool_id == ^session.pool_id and is_nil(turn.id),
+          select: request
+      )
+    end
+  end
+
+  defp claimed_original(_session, _api_key, _input), do: nil
 
   @spec insert_successor_turn!(CodexSession.t(), Request.t(), binary(), DateTime.t()) ::
           CodexTurn.t()
@@ -647,10 +678,99 @@ defmodule CodexPooler.Accounting.ClientRetry do
          :ok <- maybe_validate_owner_idle(session, owner_lease, input, db_now),
          :ok <- validate_no_lineage(lineage, request.id),
          :ok <- validate_no_entitlement(entitlement),
-         :ok <- validate_terminal_lifecycle(turn, request, attempt),
-         :ok <- validate_observation(attempt.response_metadata),
-         :ok <- validate_close_evidence(attempt.response_metadata) do
+         :ok <- validate_retry_lifecycle(turn, request, attempt) do
       validate_retry_window(request.completed_at, db_now)
+    end
+  end
+
+  defp validate_retry_lifecycle(turn, request, %Attempt{} = attempt) do
+    with :ok <- validate_terminal_lifecycle(turn, request, attempt),
+         :ok <- validate_observation(attempt.response_metadata) do
+      validate_close_evidence(attempt.response_metadata)
+    end
+  end
+
+  defp validate_retry_lifecycle(nil, request, nil) do
+    if verified_claim_only_drain?(request) and
+         not Repo.exists?(from turn in CodexTurn, where: turn.request_id == ^request.id) and
+         not Repo.exists?(from attempt in Attempt, where: attempt.request_id == ^request.id) and
+         not Repo.exists?(from entry in LedgerEntry, where: entry.request_id == ^request.id) do
+      :ok
+    else
+      {:error, :terminal_predecessor}
+    end
+  end
+
+  defp validate_retry_lifecycle(turn, request, nil) do
+    if verified_pre_attempt_drain?(turn, request) and
+         not Repo.exists?(from attempt in Attempt, where: attempt.request_id == ^request.id) and
+         released_without_settlement?(request.id) do
+      :ok
+    else
+      {:error, :terminal_predecessor}
+    end
+  end
+
+  defp verified_claim_only_drain?(%Request{
+         status: "failed",
+         response_status_code: 499,
+         last_error_code: "owner_drained",
+         usage_status: "usage_unknown",
+         request_metadata: %{"websocket_pre_attempt_drain" => true},
+         completed_at: %DateTime{}
+       }),
+       do: true
+
+  defp verified_claim_only_drain?(_request), do: false
+
+  # Only receipt-validated owner cleanup writes this marker. The request lock
+  # also fences create_attempt, so absence remains authoritative through claim.
+  defp verified_pre_attempt_drain?(
+         %CodexTurn{
+           status: "interrupted",
+           error_code: "owner_drained",
+           final_attempt_id: nil,
+           first_visible_output_at: nil,
+           completed_at: %DateTime{}
+         },
+         %Request{
+           status: "failed",
+           response_status_code: 499,
+           last_error_code: "owner_drained",
+           usage_status: "usage_unknown",
+           request_metadata: %{"websocket_pre_attempt_drain" => true},
+           completed_at: %DateTime{}
+         }
+       ),
+       do: true
+
+  defp verified_pre_attempt_drain?(_turn, _request), do: false
+
+  defp released_without_settlement?(request_id) do
+    entries =
+      Repo.all(
+        from entry in LedgerEntry,
+          where: entry.request_id == ^request_id,
+          order_by: [asc: entry.entry_kind],
+          lock: "FOR UPDATE"
+      )
+
+    case entries do
+      [
+        %LedgerEntry{
+          entry_kind: "release",
+          attempt_id: nil,
+          settled_cost_micros: %Decimal{},
+          details: %{"release_reason" => "owner_drained"}
+        } = release,
+        %LedgerEntry{entry_kind: "reservation", attempt_id: nil} = reservation
+      ] ->
+        release.usage_status == "usage_unknown" and
+          release.details["reservation_source_event_id"] == reservation.source_event_id and
+          Decimal.equal?(release.settled_cost_micros, 0)
+
+      _incomplete_or_settled ->
+        false
     end
   end
 

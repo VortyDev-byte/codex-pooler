@@ -24,13 +24,7 @@ defmodule CodexPooler.Gateway.Websocket.ResponseTask do
         try do
           case kind do
             :local_owner ->
-              result = run_callback.(self())
-
-              run_before_local_completion_handoff(
-                Keyword.get(opts, :before_local_completion_handoff)
-              )
-
-              complete_local_owner(parent, result)
+              run_local_owner(parent, run_callback, opts)
 
             tracked_kind ->
               run_tracked(parent, tracked_kind, run_callback, cancel_callback, opts)
@@ -43,7 +37,8 @@ defmodule CodexPooler.Gateway.Websocket.ResponseTask do
     await_direct_registration(result, kind, Keyword.get(opts, :direct_cleanup_ref))
   end
 
-  defp await_direct_registration({:ok, pid} = result, :direct, ref) when is_reference(ref) do
+  defp await_direct_registration({:ok, pid} = result, kind, ref)
+       when kind in [:direct, :local_owner] and is_reference(ref) do
     monitor = Process.monitor(pid)
 
     receive do
@@ -62,6 +57,37 @@ defmodule CodexPooler.Gateway.Websocket.ResponseTask do
   end
 
   defp await_direct_registration(result, _kind, _ref), do: result
+
+  defp run_local_owner(parent, run_callback, opts) do
+    registry = Keyword.get(opts, :activity_registry, ActivityRegistry)
+
+    {:ok, token} =
+      ActivityRegistry.register(:local_owner, self(),
+        name: registry,
+        direct_cleanup_ref: Keyword.get(opts, :direct_cleanup_ref),
+        direct_cleanup_parent: parent
+      )
+
+    if ref = Keyword.get(opts, :direct_cleanup_ref),
+      do:
+        send(
+          Keyword.fetch!(opts, :direct_cleanup_starter),
+          {:direct_cleanup_registered, self(), ref}
+        )
+
+    result =
+      try do
+        case ActivityRegistry.admit(token, name: registry) do
+          :ok -> run_callback.(self())
+          {:error, :owner_drained} -> {:error, :owner_drained}
+        end
+      after
+        ActivityRegistry.unregister(token, :completed, name: registry)
+      end
+
+    run_before_local_completion_handoff(Keyword.get(opts, :before_local_completion_handoff))
+    complete_local_owner(parent, result)
+  end
 
   @spec acknowledge_delivery(pid(), activity_token()) :: :ok
   def acknowledge_delivery(task_pid, token) when is_pid(task_pid) and is_reference(token) do

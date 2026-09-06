@@ -11,6 +11,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.ActivityRegistry.Drain do
   @spec begin(nil | map(), map()) :: {map(), reference(), [map()]}
   def begin(nil, activities) do
     epoch = make_ref()
+    activities = Map.reject(activities, fn {_token, entry} -> entry.kind == :local_owner end)
     drain = %{epoch: epoch, tokens: activities |> Map.keys() |> MapSet.new(), outcomes: %{}}
     {drain, epoch, entries(drain, activities)}
   end

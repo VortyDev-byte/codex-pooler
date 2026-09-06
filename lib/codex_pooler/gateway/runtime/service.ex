@@ -359,10 +359,17 @@ defmodule CodexPooler.Gateway.Runtime.Service do
           )
         after
           DirectCleanup.ready(request_options)
+          DirectCleanup.finish(request_options)
         end
 
       {:error, :cancelled} ->
         {:error, error(499, "client_disconnected", "request cancelled before admission")}
+
+      {:error, :owner_unavailable} ->
+        {:error, error(503, "owner_unavailable", "websocket owner admission is unavailable")}
+
+      {:error, :stale_owner} ->
+        {:error, error(409, "stale_owner", "websocket owner lease is stale")}
     end
   end
 
@@ -852,6 +859,7 @@ defmodule CodexPooler.Gateway.Runtime.Service do
       requested_model: context.requested_model,
       runtime_revocation_epoch: authorization_binding.api_key_runtime_epoch,
       semantic_turn_digest: context.semantic_turn_digest,
+      original_request_claim: context.request_options.continuity.request_claim_key,
       replay_claim_digest: context.replay_claim_digest,
       anchor_present?: not is_nil(context.request_options.continuity.previous_response_id)
     }
@@ -1550,6 +1558,7 @@ defmodule CodexPooler.Gateway.Runtime.Service do
           attrs
           |> Map.put(:codex_session, request_options.continuity.codex_session)
           |> Map.put(:semantic_turn_digest, request_options.continuity.semantic_turn_key)
+          |> Map.put(:original_request_claim, request_options.continuity.request_claim_key)
           |> Map.put(:replay_claim_digest, request_options.continuity.replay_claim_digest)
           |> Map.put(
             :anchor_present?,

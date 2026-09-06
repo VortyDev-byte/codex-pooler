@@ -142,7 +142,11 @@ defmodule CodexPooler.Gateway.Websocket.DownstreamSession do
              decoded_payload,
              Map.get(state, :opts, %{})
            ) do
-      {:ok, maybe_put_retargeted_runtime(state, runtime)}
+      state = maybe_put_retargeted_runtime(state, runtime)
+
+      if Map.get(decoded_payload, "type") == "response.create",
+        do: recover_missing_local_owner(state),
+        else: {:ok, state}
     else
       {:error, %Jason.DecodeError{}} -> {:ok, state}
       {:error, reason} -> {:error, reason}
@@ -150,6 +154,34 @@ defmodule CodexPooler.Gateway.Websocket.DownstreamSession do
   end
 
   def maybe_retarget_before_start(_payload, state), do: {:ok, state}
+
+  defp recover_missing_local_owner(state) do
+    if local_owner?(state) and missing_local_owner?(state) do
+      opts = response_options(state)
+
+      case Websocket.recover_websocket_owner_response_options(opts) do
+        {:ok, options} ->
+          owner = options.transport.websocket_owner
+
+          {:ok,
+           put_runtime(clear_monitor(state), %{
+             codex_session: options.continuity.codex_session,
+             websocket_owner_lease_token: owner.lease_token,
+             websocket_owner_downstream: owner.downstream
+           })}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      {:ok, state}
+    end
+  end
+
+  defp missing_local_owner?(%{websocket_owner_pid: pid}) when is_pid(pid),
+    do: not Process.alive?(pid)
+
+  defp missing_local_owner?(_state), do: true
 
   @spec accept_downstream_message(term(), socket_state()) ::
           WebsocketOwnerContract.downstream_match_result() | :drop

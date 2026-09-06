@@ -15,6 +15,7 @@ defmodule CodexPooler.Gateway.Runtime.Dispatch do
   alias CodexPooler.Gateway.Runtime.Dispatch.ReplayPreparation
   alias CodexPooler.Gateway.Runtime.Dispatch.SelectedCandidateContext
   alias CodexPooler.Gateway.Runtime.Finalization.AttemptSettlement
+  alias CodexPooler.Gateway.Websocket.DirectCleanup
 
   @type dispatch_callback ::
           (SelectedCandidateContext.t() ->
@@ -309,6 +310,11 @@ defmodule CodexPooler.Gateway.Runtime.Dispatch do
          %RoutingSelection{} = selection
        ) do
     attrs = %{
+      admitted_attempt_bind:
+        DirectCleanup.attempt_callback(
+          context.request_options.runtime.direct_cleanup,
+          context.reserved.request
+        ),
       model: context.model,
       pricing_snapshot: Map.get(context.reserved, :pricing_snapshot),
       upstream_identity: context.identity,

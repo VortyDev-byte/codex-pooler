@@ -36,8 +36,15 @@ defmodule CodexPooler.Accounting.ClientRetryPostgresTest do
     end)
   end
 
-  test "two committed PostgreSQL backends race to one successor lifecycle" do
-    fixture = Sandbox.unboxed_run(Repo, &committed_fixture/0)
+  for predecessor_kind <- [:attempted, :pre_attempt_drain, :claim_only_drain] do
+    @predecessor_kind predecessor_kind
+    test "two PostgreSQL backends race to one successor for #{@predecessor_kind}" do
+      race_successor_claims(@predecessor_kind)
+    end
+  end
+
+  defp race_successor_claims(predecessor_kind) do
+    fixture = Sandbox.unboxed_run(Repo, fn -> committed_fixture(predecessor_kind) end)
 
     on_exit(fn ->
       Sandbox.unboxed_run(Repo, fn ->
@@ -51,20 +58,7 @@ defmodule CodexPooler.Accounting.ClientRetryPostgresTest do
     tasks =
       for lane <- [:first, :second] do
         Task.async(fn ->
-          Sandbox.unboxed_run(Repo, fn ->
-            [[backend_pid]] = Repo.query!("SELECT pg_backend_pid()").rows
-            send(parent, {:backend_ready, lane, backend_pid, self()})
-
-            receive do
-              {:release, ^release} ->
-                Accounting.claim_client_retry_successor(
-                  fixture.auth,
-                  fixture.model,
-                  fixture.payload,
-                  fixture.opts
-                )
-            end
-          end)
+          claim_from_backend(fixture, parent, release, lane)
         end)
       end
 
@@ -88,16 +82,105 @@ defmodule CodexPooler.Accounting.ClientRetryPostgresTest do
       assert Repo.aggregate(
                from(t in CodexTurn, where: t.codex_session_id == ^fixture.session_id),
                :count
-             ) == 2
+             ) == if(predecessor_kind == :claim_only_drain, do: 1, else: 2)
 
       assert Repo.aggregate(
                from(a in Attempt, where: a.request_id == ^fixture.predecessor_id),
                :count
-             ) == 1
+             ) == if(predecessor_kind == :attempted, do: 1, else: 0)
 
       successor_id = Repo.one!(from l in RequestClientRetryLink, select: l.successor_request_id)
       assert Repo.aggregate(from(a in Attempt, where: a.request_id == ^successor_id), :count) == 0
     end)
+  end
+
+  defp claim_from_backend(fixture, parent, release, lane) do
+    Sandbox.unboxed_run(Repo, fn ->
+      [[backend_pid]] = Repo.query!("SELECT pg_backend_pid()").rows
+      send(parent, {:backend_ready, lane, backend_pid, self()})
+
+      receive do
+        {:release, ^release} ->
+          Accounting.claim_client_retry_successor(
+            fixture.auth,
+            fixture.model,
+            fixture.payload,
+            fixture.opts
+          )
+      after
+        @detection_budget -> flunk("successor claim was not released")
+      end
+    end)
+  end
+
+  test "a late old-attempt creator blocks behind the successor claim and cannot dispatch" do
+    fixture = Sandbox.unboxed_run(Repo, fn -> committed_fixture(:pre_attempt_drain) end)
+    on_exit(fn -> Sandbox.unboxed_run(Repo, fn -> cleanup_fixture(fixture) end) end)
+    parent = self()
+    release = make_ref()
+
+    claimant =
+      Task.async(fn ->
+        Sandbox.unboxed_run(Repo, fn ->
+          opts =
+            Map.put(fixture.opts, :after_locks, fn ->
+              [[backend]] = Repo.query!("SELECT pg_backend_pid()").rows
+              send(parent, {:claim_locked, backend})
+
+              receive do
+                {:release, ^release} -> :ok
+              after
+                @detection_budget -> flunk("claim lock was not released")
+              end
+            end)
+
+          Accounting.claim_client_retry_successor(
+            fixture.auth,
+            fixture.model,
+            fixture.payload,
+            opts
+          )
+        end)
+      end)
+
+    assert_receive {:claim_locked, claim_backend}, @detection_budget
+
+    creator =
+      Task.async(fn ->
+        Sandbox.unboxed_run(Repo, fn ->
+          [[backend]] = Repo.query!("SELECT pg_backend_pid()").rows
+          send(parent, {:attempt_backend, backend})
+          Accounting.create_attempt(fixture.predecessor, fixture.assignment)
+        end)
+      end)
+
+    assert_receive {:attempt_backend, attempt_backend}, @detection_budget
+
+    Sandbox.unboxed_run(Repo, fn ->
+      await_blocked(
+        attempt_backend,
+        claim_backend,
+        System.monotonic_time(:millisecond) + @detection_budget
+      )
+    end)
+
+    send(claimant.pid, {:release, release})
+    assert {:ok, %ClientRetry.SuccessorClaim{}} = Task.await(claimant, @detection_budget)
+    assert {:error, %{code: :request_already_finalized}} = Task.await(creator, @detection_budget)
+
+    Sandbox.unboxed_run(Repo, fn ->
+      refute Repo.exists?(from a in Attempt, where: a.request_id == ^fixture.predecessor_id)
+    end)
+  end
+
+  defp await_blocked(waiter, holder, deadline) do
+    [[blocked?]] = Repo.query!("SELECT $1 = ANY(pg_blocking_pids($2))", [holder, waiter]).rows
+
+    cond do
+      blocked? -> :ok
+      System.monotonic_time(:millisecond) < deadline -> await_blocked(waiter, holder, deadline)
+      true -> flunk("old attempt did not block on the successor request lock")
+    end
   end
 
   defp cleanup_fixture(fixture) do
@@ -114,7 +197,7 @@ defmodule CodexPooler.Accounting.ClientRetryPostgresTest do
     )
   end
 
-  defp committed_fixture do
+  defp committed_fixture(predecessor_kind \\ :attempted) do
     setup = accounting_setup(%{price_version: unique_price_version()})
     now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
     digest = :crypto.strong_rand_bytes(32)
@@ -124,7 +207,7 @@ defmodule CodexPooler.Accounting.ClientRetryPostgresTest do
     {:ok, %{request: predecessor}} =
       Accounting.claim_websocket_turn(setup.auth, setup.model, %{
         endpoint: "/backend-api/codex/responses",
-        correlation_id: Ecto.UUID.generate(),
+        correlation_id: "codex-turn:" <> Base.url_encode64(semantic_digest, padding: false),
         native_client_retry_witness: witness
       })
 
@@ -155,31 +238,13 @@ defmodule CodexPooler.Accounting.ClientRetryPostgresTest do
         updated_at: now
       })
 
-    attempt =
-      CodexPooler.PoolerFixtures.attempt_fixture(predecessor, setup.assignment, %{
-        status: "failed",
-        completed_at: now,
-        network_error_code: "upstream_stream_error",
-        usage_status: "usage_unknown",
-        transport: "websocket",
-        replay_generation: 0,
-        response_metadata: eligible_metadata(now)
-      })
-
-    Repo.update!(
-      Ecto.Changeset.change(predecessor,
-        status: "failed",
-        usage_status: "usage_unknown",
-        completed_at: now,
-        last_error_code: "upstream_stream_error"
-      )
-    )
-
-    Repo.update!(Ecto.Changeset.change(turn, final_attempt_id: attempt.id))
+    predecessor = finalize_predecessor(setup, predecessor, turn, now, predecessor_kind)
 
     %{
       auth: setup.auth,
       model: setup.model,
+      predecessor: predecessor,
+      assignment: setup.assignment,
       identity_id: setup.identity.id,
       pricing_id: setup.pricing.id,
       payload: %{"model" => setup.model.exposed_model_id, "input" => []},
@@ -192,9 +257,90 @@ defmodule CodexPooler.Accounting.ClientRetryPostgresTest do
         runtime_revocation_epoch: setup.api_key.runtime_revocation_epoch,
         codex_session: session,
         semantic_turn_digest: semantic_digest,
+        original_request_claim: predecessor.correlation_id,
         replay_claim_digest: digest
       }
     }
+  end
+
+  defp finalize_predecessor(setup, predecessor, turn, now, :attempted) do
+    attempt =
+      CodexPooler.PoolerFixtures.attempt_fixture(predecessor, setup.assignment, %{
+        status: "failed",
+        completed_at: now,
+        network_error_code: "upstream_stream_error",
+        usage_status: "usage_unknown",
+        transport: "websocket",
+        replay_generation: 0,
+        response_metadata: eligible_metadata(now)
+      })
+
+    predecessor =
+      Repo.update!(
+        Ecto.Changeset.change(predecessor,
+          status: "failed",
+          usage_status: "usage_unknown",
+          completed_at: now,
+          last_error_code: "upstream_stream_error"
+        )
+      )
+
+    Repo.update!(Ecto.Changeset.change(turn, final_attempt_id: attempt.id))
+
+    predecessor
+  end
+
+  defp finalize_predecessor(setup, predecessor, turn, _now, :pre_attempt_drain) do
+    {:ok, %{request: reserved}} =
+      Accounting.reserve(
+        setup.auth,
+        setup.model,
+        %{"model" => setup.model.exposed_model_id, "input" => []},
+        %{
+          transport: "websocket",
+          endpoint: predecessor.endpoint,
+          correlation_id: predecessor.correlation_id,
+          turn_claim: predecessor
+        }
+      )
+
+    {:ok, %{request: request}} =
+      Accounting.finalize_reservation_failure(reserved, %{
+        last_error_code: "owner_drained",
+        usage_status: "usage_unknown",
+        response_status_code: 499
+      })
+
+    Repo.update!(
+      Ecto.Changeset.change(turn,
+        status: "interrupted",
+        error_code: "owner_drained",
+        first_visible_output_at: nil,
+        completed_at: request.completed_at
+      )
+    )
+
+    Repo.update!(
+      Ecto.Changeset.change(request,
+        request_metadata:
+          Map.put(request.request_metadata || %{}, "websocket_pre_attempt_drain", true)
+      )
+    )
+  end
+
+  defp finalize_predecessor(_setup, predecessor, turn, now, :claim_only_drain) do
+    Repo.delete!(turn)
+
+    Repo.update!(
+      Ecto.Changeset.change(predecessor,
+        status: "failed",
+        response_status_code: 499,
+        last_error_code: "owner_drained",
+        usage_status: "usage_unknown",
+        completed_at: now,
+        request_metadata: %{"websocket_pre_attempt_drain" => true}
+      )
+    )
   end
 
   defp eligible_metadata(now) do
