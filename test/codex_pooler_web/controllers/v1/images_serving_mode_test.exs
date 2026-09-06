@@ -35,7 +35,7 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
       assert captured.json["stream"] == true
       assert [tool] = image_tools(captured.json, @mode)
       assert tool["type"] == "image_generation"
-      assert tool["model"] == "gpt-image-2"
+      assert tool["model"] == "gpt-image-1"
       assert tool["quality"] == "medium"
 
       if @operation == "edits" do
@@ -51,8 +51,8 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
 
       assert [request] = Repo.all(from(r in Request, where: r.pool_id == ^setup.pool.id))
       assert request.status == "succeeded"
-      assert request.request_metadata["requested_model"] == "gpt-image-2"
-      assert request.request_metadata["effective_model"] == "gpt-image-2"
+      assert request.request_metadata["requested_model"] == "gpt-image-1"
+      assert request.request_metadata["effective_model"] == "gpt-image-1"
       assert [attempt] = Repo.all(from(a in Attempt, where: a.request_id == ^request.id))
       assert attempt.status == "succeeded"
 
@@ -208,7 +208,7 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
     |> Repo.update!()
 
     setup.api_key
-    |> Ecto.Changeset.change(allowed_model_identifiers: ["gpt-image-2"])
+    |> Ecto.Changeset.change(allowed_model_identifiers: ["gpt-image-1"])
     |> Repo.update!()
 
     timestamp = DateTime.utc_now()
@@ -226,10 +226,9 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
 
   defp image_request(conn, "generations", _source) do
     post(conn, "/v1/images/generations", %{
-      "model" => "gpt-image-2",
+      "model" => "gpt-image-1",
       "prompt" => "synthetic image",
-      "quality" => "medium",
-      "input_fidelity" => "high"
+      "quality" => "medium"
     })
   end
 
@@ -242,7 +241,7 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
   defp multipart(boundary, source) do
     fields =
       for {key, value} <- [
-            {"model", "gpt-image-2"},
+            {"model", "gpt-image-1"},
             {"prompt", "synthetic image"},
             {"quality", "medium"},
             {"input_fidelity", "high"}
