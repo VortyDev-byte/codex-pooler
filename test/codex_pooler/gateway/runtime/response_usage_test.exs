@@ -212,7 +212,7 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.ResponseUsageTest do
 
   describe "from_sse/1" do
     test "preserves absent, zero, and positive terminal SSE cache-write counters" do
-      for {reported, expected} <- [{:absent, nil}, {0, 0}, {8, 8}] do
+      for {reported, expected} <- [{:absent, nil}, {0, 0}, {6, 6}] do
         body = terminal_sse_usage(reported)
         assert Map.get(ResponseUsage.from_sse(body), :cache_write_tokens) == expected
       end
@@ -274,186 +274,31 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.ResponseUsageTest do
              }
     end
 
-    test "extracts usage from a retained SSE suffix that starts inside a large data frame" do
-      body =
-        ~s(output_text":"truncated prefix) <>
-          ~s(","usage":{"input_tokens":214407,"input_tokens_details":{"cached_tokens":206848,"cache_write_tokens":1024},"output_tokens":512,"reasoning_tokens":0,"total_tokens":214919},"status":"completed"}}\n\n) <>
-          "data: [DONE]\n\n"
-
-      assert ResponseUsage.from_sse(body) == %{
-               status: "usage_known",
-               source: "upstream_usage",
-               input_tokens: 214_407,
-               cached_input_tokens: 206_848,
-               cache_write_tokens: 1_024,
-               output_tokens: 512,
-               reasoning_tokens: 0,
-               total_tokens: 214_919,
-               service_tier: nil
-             }
-    end
-
-    test "extracts canonical nested reasoning from a retained SSE suffix" do
-      body =
-        ~s(output_text":"truncated prefix) <>
-          ~s(","usage":{"input_tokens":21,"output_tokens":41,"reasoning_tokens":5,"output_tokens_details":{"reasoning_tokens":17},"total_tokens":62},"status":"completed"}}\n\n) <>
-          "data: [DONE]\n\n"
-
-      assert %{reasoning_tokens: 17, output_tokens: 41, total_tokens: 62} =
-               ResponseUsage.from_sse(body)
-    end
-
-    test "matches decoded JSON for present-invalid nested reasoning in retained SSE" do
-      for {nested, flat} <- [
-            {-1, :absent},
-            {1.5, :absent},
-            {"1", :absent},
-            {%{}, :absent},
-            {-1, 7},
-            {1.5, 7},
-            {"1", 7},
-            {%{}, 7},
-            {-1, "invalid"},
-            {1.5, -2},
-            {"1", %{}},
-            {%{}, nil},
-            {:absent, 9}
+    test "truncated records cannot provide aggregate provenance" do
+      for prefix <- [~s(output_text":"truncated prefix), ~s({"response":)],
+          usage <- [
+            %{"input_tokens" => 21, "output_tokens" => 41, "total_tokens" => 62},
+            %{"input_tokens" => 21, "output_tokens" => 41, "total_tokens" => 99}
           ] do
-        usage =
-          %{
-            "input_tokens" => 21,
-            "output_tokens" => 41,
-            "total_tokens" => 62
-          }
-          |> maybe_put_test_value("reasoning_tokens", flat)
-          |> maybe_put_test_nested_reasoning(nested)
+        retained = prefix <> ~s(,"usage":) <> Jason.encode!(usage) <> "}}\n\n"
 
-        expected = ResponseUsage.from_decoded(%{"usage" => usage})
-        retained = retained_usage(usage)
+        assert %{status: "usage_unknown", source: "sse_usage_missing"} =
+                 ResponseUsage.from_sse(retained)
 
-        assert ResponseUsage.from_sse(retained) == expected
-        assert ResponseUsage.from_websocket_body(retained) == expected
+        assert %{status: "usage_unknown", source: "websocket_usage_missing"} =
+                 ResponseUsage.from_websocket_body(retained)
       end
     end
 
-    test "rejects malformed cache-write counters in retained SSE usage" do
-      for invalid <- ["-1", "1.5", ~s("1"), "null"] do
-        body = retained_usage_with_cache_write(invalid) <> "data: [DONE]\n\n"
-
-        assert ResponseUsage.from_sse(body) == %{
-                 status: "usage_unknown",
-                 source: "invalid_usage_tokens"
-               }
-      end
+    test "unscoped retained fragments cannot override a complete event" do
+      complete = terminal_sse_usage(0)
+      fragment = retained_usage_with_cache_write(~s("invalid"))
+      assert ResponseUsage.from_sse(complete <> fragment) == ResponseUsage.from_sse(complete)
     end
 
-    test "malformed retained terminal usage overrides earlier known SSE usage" do
-      body =
-        terminal_sse_usage(0) <>
-          retained_usage_with_cache_write(~s("9")) <>
-          "data: [DONE]\n\n"
-
-      assert ResponseUsage.from_sse(body) == %{
-               status: "usage_unknown",
-               source: "invalid_usage_tokens"
-             }
-    end
-
-    test "prefers retained terminal usage over earlier zero-token SSE usage" do
-      body =
-        sse_event("response.in_progress", %{
-          "response" => %{
-            "service_tier" => "standard",
-            "usage" => %{
-              "input_tokens" => 0,
-              "cached_input_tokens" => 0,
-              "output_tokens" => 0,
-              "reasoning_tokens" => 0,
-              "total_tokens" => 0
-            }
-          }
-        }) <>
-          ~s("service_tier":"flex","output_text":"truncated prefix) <>
-          ~s(","usage":{"input_tokens":16086,"input_tokens_details":{"cached_tokens":0},"output_tokens":117,"reasoning_tokens":0,"total_tokens":16203},"status":"completed"}}\n\n) <>
-          "data: [DONE]\n\n"
-
-      assert ResponseUsage.from_sse(body) == %{
-               status: "usage_known",
-               source: "upstream_usage",
-               input_tokens: 16_086,
-               cached_input_tokens: 0,
-               output_tokens: 117,
-               reasoning_tokens: 0,
-               total_tokens: 16_203,
-               service_tier: "flex"
-             }
-    end
-
-    test "uses retained service tier serialized after terminal usage" do
-      json_like_output_text =
-        String.duplicate(
-          ~s({"usage":{"input_tokens":999,"output_tokens":999,"total_tokens":1998},"service_tier":"printed"}),
-          80
-        )
-
-      body =
-        sse_event("response.in_progress", %{
-          "response" => %{
-            "service_tier" => "auto",
-            "usage" => %{
-              "input_tokens" => 0,
-              "cached_input_tokens" => 0,
-              "output_tokens" => 0,
-              "reasoning_tokens" => 0,
-              "total_tokens" => 0
-            }
-          }
-        }) <>
-          ~s(output_text":"truncated prefix) <>
-          ~s(","usage":{"input_tokens":16,"input_tokens_details":{"cached_tokens":0},"output_tokens":5,"reasoning_tokens":0,"total_tokens":21},"output_text":) <>
-          Jason.encode!(json_like_output_text) <>
-          ~s(,"service_tier":"flex","status":"completed"}}\n\n) <>
-          "data: [DONE]\n\n"
-
-      assert ResponseUsage.from_sse(body) == %{
-               status: "usage_known",
-               source: "upstream_usage",
-               input_tokens: 16,
-               cached_input_tokens: 0,
-               output_tokens: 5,
-               reasoning_tokens: 0,
-               total_tokens: 21,
-               service_tier: "flex"
-             }
-    end
-
-    test "inherits stream service tier when retained terminal usage starts at usage" do
-      body =
-        sse_event("response.in_progress", %{
-          "response" => %{
-            "service_tier" => "priority",
-            "usage" => %{
-              "input_tokens" => 0,
-              "cached_input_tokens" => 0,
-              "output_tokens" => 0,
-              "reasoning_tokens" => 0,
-              "total_tokens" => 0
-            }
-          }
-        }) <>
-          ~s(output_text":"truncated prefix) <>
-          ~s(","usage":{"input_tokens":11,"cached_input_tokens":2,"output_tokens":5,"reasoning_tokens":1,"total_tokens":16},"status":"completed"}}\n\n) <>
-          "data: [DONE]\n\n"
-
-      assert %{
-               status: "usage_known",
-               input_tokens: 11,
-               cached_input_tokens: 2,
-               output_tokens: 5,
-               reasoning_tokens: 1,
-               total_tokens: 16,
-               service_tier: "priority"
-             } = ResponseUsage.from_sse(body)
+    test "a complete terminal event after a truncated prefix restores provenance" do
+      body = ~s(truncated,"usage":{"input_tokens":999) <> "\n\n" <> terminal_sse_usage(0)
+      assert ResponseUsage.from_sse(body) == ResponseUsage.from_sse(terminal_sse_usage(0))
     end
 
     test "marks SSE without usage as unknown" do
@@ -515,22 +360,12 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.ResponseUsageTest do
       end
     end
 
-    test "rejects malformed cache-write counters in retained websocket usage" do
-      for invalid <- ["-1", "1.5", ~s("1"), "null"] do
-        assert ResponseUsage.from_websocket_body(retained_usage_with_cache_write(invalid)) == %{
-                 status: "usage_unknown",
-                 source: "invalid_usage_tokens"
-               }
-      end
-    end
+    test "unscoped retained websocket fragments cannot override complete frames" do
+      complete = terminal_websocket_usage(0)
+      fragment = retained_usage_with_cache_write("null")
 
-    test "malformed retained terminal usage overrides earlier known websocket usage" do
-      body = terminal_websocket_usage(0) <> "\n" <> retained_usage_with_cache_write("null")
-
-      assert ResponseUsage.from_websocket_body(body) == %{
-               status: "usage_unknown",
-               source: "invalid_usage_tokens"
-             }
+      assert ResponseUsage.from_websocket_body(complete <> "\n" <> fragment) ==
+               ResponseUsage.from_websocket_body(complete)
     end
 
     test "extracts usage from SSE-style collected websocket data chunks" do
@@ -735,18 +570,4 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.ResponseUsageTest do
   defp retained_usage_with_cache_write(cache_write_tokens) do
     ~s|"usage":{"input_tokens":10,"input_tokens_details":{"cached_tokens":4,"cache_write_tokens":#{cache_write_tokens}},"output_tokens":2,"total_tokens":12}}|
   end
-
-  defp retained_usage(usage) do
-    ~s(output_text":"truncated prefix,"usage":) <>
-      Jason.encode!(usage) <>
-      ~s(,"status":"completed"}}\n\ndata: [DONE]\n\n)
-  end
-
-  defp maybe_put_test_nested_reasoning(usage, :absent), do: usage
-
-  defp maybe_put_test_nested_reasoning(usage, value),
-    do: Map.put(usage, "output_tokens_details", %{"reasoning_tokens" => value})
-
-  defp maybe_put_test_value(map, _key, :absent), do: map
-  defp maybe_put_test_value(map, key, value), do: Map.put(map, key, value)
 end

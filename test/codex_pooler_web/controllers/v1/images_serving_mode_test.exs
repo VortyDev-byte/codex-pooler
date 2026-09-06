@@ -6,8 +6,9 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
   import CodexPoolerWeb.Runtime.BackendCodexTestSupport,
     only: [auth: 2, gateway_setup: 1, start_upstream: 1]
 
-  alias CodexPooler.Accounting.{Attempt, Request}
+  alias CodexPooler.Accounting.{Attempt, LedgerEntry, Request}
   alias CodexPooler.FakeUpstream
+  alias CodexPooler.Gateway.Persistence.RoutingCircuitState
   alias CodexPooler.Pools.ModelServingOverride
   alias CodexPooler.Repo
 
@@ -83,7 +84,50 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
       assert FakeUpstream.count(upstream) == 1
       assert Repo.aggregate(Request, :count) == 1
       assert Repo.aggregate(Attempt, :count) == 1
+      assert [request] = Repo.all(Request)
+      assert request.status == "failed"
+      assert request.last_error_code == "image_generation_failed"
+      assert request.response_status_code == 502
+      assert [attempt] = Repo.all(Attempt)
+      assert attempt.status == "failed"
+      assert attempt.upstream_status_code == 200
+      assert attempt.network_error_code == "image_generation_failed"
+      assert attempt.response_metadata["status_code"] == 200
+      assert_usage_settled_once(request, attempt)
+      refute Repo.exists?(from(c in RoutingCircuitState, where: c.failure_count > 0))
     end
+  end
+
+  for mode <- ["full", "lite"], chunk_size <- [257, 8191] do
+    @mode mode
+    @chunk_size chunk_size
+    test "#{@mode} image output larger than retained diagnostics survives #{@chunk_size} byte chunks",
+         %{conn: conn} do
+      encoded = Base.encode64(:binary.copy(<<0, 1, 2, 3>>, 30_000))
+      {:sse, chunks} = image_stream(encoded)
+      stream = IO.iodata_to_binary(chunks)
+      upstream = start_upstream({:sse, split_chunks(stream, @chunk_size)})
+      setup = setup_host(upstream, @mode)
+
+      response = image_request(auth(conn, setup), "generations", nil)
+
+      assert %{"data" => [%{"b64_json" => actual}]} = json_response(response, 200)
+      assert byte_size(actual) == byte_size(encoded)
+      assert :crypto.hash(:sha256, actual) == :crypto.hash(:sha256, encoded)
+      assert [request] = Repo.all(Request)
+      assert request.status == "succeeded"
+      assert [attempt] = Repo.all(Attempt)
+      assert attempt.status == "succeeded"
+      assert_usage_settled_once(request, attempt)
+      assert FakeUpstream.count(upstream) == 1
+    end
+  end
+
+  defp split_chunks(body, size) when byte_size(body) <= size, do: [body]
+
+  defp split_chunks(body, size) do
+    <<chunk::binary-size(^size), rest::binary>> = body
+    [chunk | split_chunks(rest, size)]
   end
 
   test "authentication and malformed multipart fail before upstream work", %{conn: conn} do
@@ -222,10 +266,26 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
          "response" => %{
            "id" => "resp_synthetic_image",
            "status" => "completed",
-           "output" => output
+           "output" => output,
+           "usage" => %{"input_tokens" => 7, "output_tokens" => 13, "total_tokens" => 20}
          }
        }}
     ])
+  end
+
+  defp assert_usage_settled_once(request, attempt) do
+    assert request.usage_status == "usage_known"
+    assert attempt.usage_status == "usage_known"
+
+    assert [settlement] =
+             Repo.all(
+               from(e in LedgerEntry,
+                 where: e.request_id == ^request.id and e.entry_kind == "settlement"
+               )
+             )
+
+    assert {settlement.input_tokens, settlement.output_tokens, settlement.total_tokens} ==
+             {7, 13, 20}
   end
 
   defp png(red, green, blue) do

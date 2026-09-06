@@ -7,7 +7,9 @@ defmodule CodexPooler.Gateway.Runtime.Streaming.OpenAIStreamCollector do
   alias CodexPooler.Gateway.Runtime.Dispatch.ResponseContext
   alias CodexPooler.Gateway.Runtime.Dispatch.SelectedCandidateContext
   alias CodexPooler.Gateway.Runtime.Finalization
+  alias CodexPooler.Gateway.Runtime.Finalization.{Metadata, ResponseUsage}
   alias CodexPooler.Gateway.Runtime.RateLimitObserver
+  alias CodexPooler.Gateway.Runtime.Streaming.StreamUsageObserver
   alias CodexPooler.Gateway.Transports.Streaming.StreamProtocol
   alias CodexPooler.Gateway.Transports.Streaming.StreamRelay
 
@@ -53,7 +55,12 @@ defmodule CodexPooler.Gateway.Runtime.Streaming.OpenAIStreamCollector do
          finalization_callbacks,
          parser
        ) do
-    state = %{chunks: [], rate_limit: RateLimitObserver.event_state()}
+    state = %{
+      chunks: [],
+      rate_limit: RateLimitObserver.event_state(),
+      usage_observer: StreamUsageObserver.new()
+    }
+
     response_context = %ResponseContext{context: context, response: response}
 
     case StreamRelay.run(state, response, %{
@@ -66,7 +73,16 @@ defmodule CodexPooler.Gateway.Runtime.Streaming.OpenAIStreamCollector do
              )
            end,
            finalize_failure: fn body, reason, state ->
-             Finalization.finalize_stream_failure(body, reason, response_context, state)
+             with {:ok, finalized} <-
+                    Finalization.finalize_stream_failure(body, reason, response_context, state) do
+               case Map.fetch(state, :collection_error) do
+                 {:ok, error} -> {:error, error}
+                 :error -> {:ok, finalized}
+               end
+             end
+           end,
+           before_finalize_success: fn state ->
+             prepare_collection_result(state, parser, response)
            end,
            first_event_retry: first_event_retry_handler(response_context),
            write_chunk: fn state, data ->
@@ -81,19 +97,54 @@ defmodule CodexPooler.Gateway.Runtime.Streaming.OpenAIStreamCollector do
                  data
                )
 
-             {:ok, %{state | chunks: [data | state.chunks], rate_limit: rate_limit_state}}
+             {:ok,
+              %{
+                state
+                | chunks: [data | state.chunks],
+                  rate_limit: rate_limit_state,
+                  usage_observer: StreamUsageObserver.observe(state.usage_observer, data)
+              }}
            end,
            write_keepalive: fn state -> {:ok, state} end,
            keepalive_interval_ms: 0
          }) do
+      {:ok, %{collected_response: response}} ->
+        {:ok, response}
+
       {:ok, %{chunks: chunks}} ->
-        chunks
-        |> Enum.reverse()
-        |> IO.iodata_to_binary()
-        |> parser.()
+        chunks |> Enum.reverse() |> IO.iodata_to_binary() |> parser.()
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp prepare_collection_result(state, parser, upstream_response) do
+    body = state.chunks |> Enum.reverse() |> IO.iodata_to_binary()
+    state = put_json_usage(state, body, upstream_response)
+    result = parser.(body)
+
+    case result do
+      {:ok, response} ->
+        {:ok, Map.put(state, :collected_response, response), ""}
+
+      {:error, error} ->
+        {:failure, Map.put(state, :collection_error, error), "",
+         {:collected_response_invalid, error.status, error.code}}
+    end
+  end
+
+  defp put_json_usage(state, body, upstream_response) do
+    if Metadata.json_content?(upstream_response) do
+      usage =
+        case Jason.decode(body) do
+          {:ok, decoded} -> ResponseUsage.from_stream_event(decoded)
+          {:error, _reason} -> %{status: "usage_unknown", source: "json_decode_failed"}
+        end
+
+      state |> Map.delete(:usage_observer) |> Map.put(:response_usage, usage)
+    else
+      state
     end
   end
 

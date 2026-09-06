@@ -108,7 +108,7 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Websocket do
       request_options: request_options
     } = context
 
-    usage = ResponseUsage.from_websocket_body(body)
+    usage = response_usage(finalization, body)
     transports = resolved_transports(context)
 
     case AttemptSettlement.finalize_success(
@@ -738,7 +738,7 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Websocket do
     case AttemptSettlement.finalize_partial_stream_failure(
            reserved.request,
            attempt,
-           ResponseUsage.from_websocket_body(body),
+           response_usage(finalization, body),
            SettlementAttrs.partial_stream_failure(
              context,
              finalization.status,
@@ -881,7 +881,7 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Websocket do
     case AttemptSettlement.finalize_partial_stream_failure(
            reserved.request,
            attempt,
-           ResponseUsage.from_websocket_body(body),
+           response_usage(finalization, body),
            SettlementAttrs.partial_stream_failure(
              context,
              owner_payload.status,
@@ -996,7 +996,7 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Websocket do
     case AttemptSettlement.finalize_partial_stream_failure(
            reserved.request,
            attempt,
-           ResponseUsage.from_websocket_body(body),
+           response_usage(finalization, body),
            SettlementAttrs.partial_stream_failure(
              context,
              502,
@@ -1087,6 +1087,12 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Websocket do
       Metadata.upstream_failure_message(endpoint)
     )
   end
+
+  defp response_usage(%{response_usage: %{status: status} = usage}, _body)
+       when status in ["usage_known", "usage_unknown"],
+       do: usage
+
+  defp response_usage(_finalization, body), do: ResponseUsage.from_websocket_body(body)
 
   defp elapsed_ms(started), do: max(System.monotonic_time(:millisecond) - started, 0)
 

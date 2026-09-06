@@ -7,6 +7,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.UpstreamWebsocketSession do
 
   alias CodexPooler.Accounting.ClientRetry
   alias CodexPooler.Gateway.Payloads.RequestOptions.ResetProbe
+  alias CodexPooler.Gateway.Runtime.Finalization.ResponseUsage
   alias CodexPooler.Gateway.Transports.NativeCodexResponseControl
   alias CodexPooler.Gateway.Transports.NativeCodexResponseControl.TurnSnapshot
   alias CodexPooler.Gateway.Transports.Streaming.RetainedBody
@@ -74,6 +75,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.UpstreamWebsocketSession do
           required(:status) => 200,
           required(:headers) => response_headers(),
           optional(:response_id) => String.t(),
+          optional(:response_usage) => ResponseUsage.usage() | nil,
           optional(:ordinary_success_result) => OrdinarySuccessResult.t(),
           optional(:first_compact_result) => FirstCompactResult.t(),
           optional(:upstream_websocket_connection) => upstream_websocket_connection(),
@@ -1654,6 +1656,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.UpstreamWebsocketSession do
           %{
             body: receive_body(receive_state),
             terminal: terminal,
+            response_usage: receive_state.response_usage,
             status: 200,
             headers: Map.get(state, :headers, []),
             upstream_error_code: receive_state.terminal_upstream_error_code,
@@ -1830,6 +1833,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.UpstreamWebsocketSession do
       |> maybe_put_response_id(raw_decoded)
       |> put_websocket_frame_headers(raw_decoded)
       |> increment_text_frame_count()
+      |> capture_terminal_usage(raw_decoded, terminal_discriminator)
       |> append_receive_body(collected_text)
       |> put_terminal_discriminator(terminal_discriminator)
 
@@ -1858,6 +1862,13 @@ defmodule CodexPooler.Gateway.Transports.Websocket.UpstreamWebsocketSession do
         end
     end
   end
+
+  defp capture_terminal_usage(receive_state, decoded, %TerminalDiscriminator{terminal: terminal})
+       when is_binary(terminal) do
+    %{receive_state | response_usage: ResponseUsage.from_stream_event(decoded)}
+  end
+
+  defp capture_terminal_usage(receive_state, _decoded, _discriminator), do: receive_state
 
   defp transport_failure_metadata(
          reason,

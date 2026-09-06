@@ -285,11 +285,12 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Streaming do
         stream_usage(body, stream_state),
         SettlementAttrs.partial_stream_failure(
           context,
-          response.status,
+          failure_response_status(reason, response.status),
           code,
           terminal_failure_message(code, Metadata.safe_reason(reason)),
           attempt_metadata
         )
+        |> Map.put(:upstream_status_code, response.status)
         |> maybe_put_before_finalize(context, fn ->
           SideEffects.observe_stream_response(context, response, body, stream_state)
           record_stream_failure_health(reason, code, terminal_failure, response.headers, context)
@@ -427,6 +428,10 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Streaming do
   def error_code({:chunk, _reason}), do: "downstream_stream_error"
   def error_code({:upstream_idle_timeout, _reason}), do: "stream_idle_timeout"
   def error_code({:upstream_stream_interrupted, _reason}), do: "upstream_stream_error"
+
+  def error_code({:collected_response_invalid, _status, code}),
+    do: DiagnosticTaxonomy.identifier(code) || "upstream_response_missing"
+
   def error_code(:upstream_websocket_receive_timeout), do: "stream_idle_timeout"
   def error_code({:terminal_stream_failure, %{code: code}}) when is_binary(code), do: code
   def error_code(:upstream_unauthorized), do: "upstream_unauthorized"
@@ -480,6 +485,15 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Streaming do
   defp record_stream_failure_health(
          {:upstream_stream_interrupted, _reason},
          "upstream_stream_error",
+         nil,
+         _headers,
+         context
+       ),
+       do: DispatchLifecycle.neutral_completion(context)
+
+  defp record_stream_failure_health(
+         {:collected_response_invalid, _status, _code},
+         _error_code,
          nil,
          _headers,
          context
@@ -598,6 +612,11 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Streaming do
   defp terminal_failure_reason({:terminal_stream_failure, %{} = failure}), do: failure
   defp terminal_failure_reason(_reason), do: nil
 
+  defp failure_response_status({:collected_response_invalid, status, _code}, _upstream_status),
+    do: status
+
+  defp failure_response_status(_reason, upstream_status), do: upstream_status
+
   defp stream_failure_code(nil, _context), do: nil
 
   defp stream_failure_code(failure, context) do
@@ -630,12 +649,12 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Streaming do
 
   defp elapsed_ms(started), do: max(System.monotonic_time(:millisecond) - started, 0)
 
-  defp stream_usage(body, stream_state) do
-    StreamUsageObserver.usage(stream_state_usage(stream_state)) || ResponseUsage.from_sse(body)
-  end
+  defp stream_usage(_body, %{response_usage: %{} = usage}), do: usage
 
-  defp stream_state_usage(%{usage_observer: %{} = usage_state}), do: usage_state
-  defp stream_state_usage(_stream_state), do: StreamUsageObserver.new()
+  defp stream_usage(_body, %{usage_observer: %{} = usage_state}),
+    do: StreamUsageObserver.result(usage_state)
+
+  defp stream_usage(body, _stream_state), do: ResponseUsage.from_sse(body)
 
   defp merge_usage_observation(metadata, %{usage_observer: %{} = observer}) do
     observation =

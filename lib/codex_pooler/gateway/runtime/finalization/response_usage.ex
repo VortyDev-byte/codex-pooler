@@ -15,10 +15,6 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.ResponseUsage do
           optional(:service_tier) => String.t() | nil
         }
 
-  @retained_usage_context_bytes 4_096
-  @usage_field_pattern ~r/(?<!\\)"usage"\s*:/
-  @service_tier_pattern ~r/(?<!\\)"service_tier"\s*:\s*"([^"\\]+)"/
-
   @spec from_json(binary()) :: usage()
   def from_json(body) when is_binary(body) do
     case Jason.decode(body) do
@@ -30,195 +26,116 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.ResponseUsage do
   @spec from_decoded(term()) :: usage()
   def from_decoded(decoded), do: usage_from_decoded(decoded)
 
+  @doc "Extracts only the aggregate usage owned by a streamed response envelope."
+  @spec from_stream_event(term()) :: usage()
+  def from_stream_event(%{"usage" => usage} = envelope) when is_map(usage),
+    do: normalize_stream_usage(usage, envelope)
+
+  def from_stream_event(%{"usage" => _invalid}),
+    do: %{status: "usage_unknown", source: "invalid_usage_tokens"}
+
+  def from_stream_event(%{"response" => %{"usage" => usage} = response}) when is_map(usage),
+    do: normalize_stream_usage(usage, response)
+
+  def from_stream_event(_event), do: %{status: "usage_unknown", source: "usage_missing"}
+
+  defp normalize_stream_usage(usage, envelope) do
+    case normalize_usage(usage, envelope) do
+      %{status: "usage_known"} = normalized ->
+        cached = Map.get(normalized, :cached_input_tokens, 0) || 0
+        written = Map.get(normalized, :cache_write_tokens, 0) || 0
+
+        if cached + written <= normalized.input_tokens and
+             normalized.reasoning_tokens <= normalized.output_tokens,
+           do: Map.put(normalized, :service_tier, stream_service_tier(envelope["service_tier"])),
+           else: %{status: "usage_unknown", source: "invalid_usage_tokens"}
+
+      unknown ->
+        unknown
+    end
+  end
+
+  defp stream_service_tier(tier) when tier in ~w(auto default flex priority scale ultrafast),
+    do: :binary.copy(tier)
+
+  defp stream_service_tier(_tier), do: nil
+
   @spec from_sse(binary()) :: usage()
-  def from_sse(body) when is_binary(body), do: from_sse_body(body, "sse_usage_missing")
+  def from_sse(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} when is_map(decoded) -> from_stream_event(decoded)
+      _framed_or_incomplete -> decode_stream_body(body, "sse_usage_missing", false)
+    end
+  end
 
   @spec from_websocket_body(binary()) :: usage()
-  def from_websocket_body(body) when is_binary(body) do
-    line_or_message_usage =
-      best_usage(usage_from_sse_lines(body), from_delimited_json_messages(body))
+  def from_websocket_body(body) when is_binary(body),
+    do: decode_stream_body(body, "websocket_usage_missing", true)
 
-    case best_usage(line_or_message_usage, usage_from_retained_usage_fragment(body)) do
-      %{status: "usage_known"} = usage -> usage
-      %{status: "usage_unknown"} = usage -> usage
-      _missing -> %{status: "usage_unknown", source: "websocket_usage_missing"}
+  defp decode_stream_body(body, missing_source, websocket?) do
+    usage =
+      body
+      |> stream_records(websocket?)
+      |> Enum.reduce_while(nil, &stream_record_usage/2)
+
+    case usage do
+      nil -> %{status: "usage_unknown", source: missing_source}
+      %{source: "usage_missing"} -> %{status: "usage_unknown", source: missing_source}
+      usage -> usage
     end
   end
 
-  defp from_sse_body(body, missing_source) do
-    best_usage(usage_from_sse_lines(body), usage_from_retained_usage_fragment(body)) ||
-      %{status: "usage_unknown", source: missing_source}
+  defp stream_record_usage({json, event_type}, previous) do
+    case Jason.decode(json) do
+      {:ok, decoded} when is_map(decoded) ->
+        candidate = from_stream_event(decoded)
+
+        cond do
+          terminal_type?(event_type || stream_event_type(decoded)) -> {:halt, candidate}
+          candidate.source != "usage_missing" -> {:cont, candidate}
+          true -> {:cont, previous}
+        end
+
+      _malformed ->
+        if terminal_type?(event_type),
+          do: {:halt, %{status: "usage_unknown", source: "json_decode_failed"}},
+          else: {:cont, previous}
+    end
   end
 
-  defp usage_from_sse_lines(body) do
+  defp terminal_type?(type),
+    do: type in ["response.completed", "response.incomplete", "response.failed"]
+
+  defp stream_event_type(%{"type" => type}) when is_binary(type), do: type
+  defp stream_event_type(%{"response" => %{"type" => type}}) when is_binary(type), do: type
+  defp stream_event_type(_event), do: nil
+
+  defp stream_records(body, websocket?) do
     body
-    |> String.split("\n")
-    |> Enum.filter(&String.starts_with?(&1, "data: "))
-    |> Enum.map(&String.replace_prefix(&1, "data: ", ""))
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == "[DONE]"))
-    |> usage_from_json_lines()
+    |> String.split(~r/\r\n\r\n|\n\n|\r\r/, trim: true)
+    |> Enum.flat_map(&stream_block(&1, websocket?))
   end
 
-  defp usage_from_retained_usage_fragment(body) do
-    body
-    |> retained_usage_candidates()
-    |> Enum.reduce(nil, fn candidate, acc ->
-      case usage_from_retained_usage_candidate(candidate) do
-        %{status: "usage_known"} = usage -> usage
-        %{status: "usage_unknown"} = usage -> usage
-        nil -> acc
-      end
-    end)
-  end
+  defp stream_block(block, websocket?) do
+    lines = String.split(block, ~r/\r\n|\n|\r/)
+    data = for "data:" <> line <- lines, do: String.replace_prefix(line, " ", "")
+    type = Enum.reduce(lines, nil, &sse_event_type/2)
 
-  defp retained_usage_candidates(body) do
-    @usage_field_pattern
-    |> Regex.scan(body, return: :index)
-    |> Enum.map(fn [{offset, _length} | _captures] ->
-      record_offset = retained_record_start(body, offset)
-      context_offset = max(offset - @retained_usage_context_bytes, record_offset)
-
-      %{
-        context_prefix: binary_part(body, context_offset, offset - context_offset),
-        usage_fragment: binary_part(body, offset, byte_size(body) - offset)
-      }
-    end)
-  end
-
-  defp retained_record_start(body, offset) do
-    body
-    |> binary_part(0, offset)
-    |> :binary.matches("\n")
-    |> List.last()
-    |> case do
-      {newline_offset, _length} -> newline_offset + 1
-      nil -> 0
+    cond do
+      data != [] -> [{Enum.join(data, "\n"), type}]
+      websocket? -> Enum.map(lines, &{&1, nil})
+      true -> []
     end
   end
 
-  defp usage_from_retained_usage_candidate(%{
-         context_prefix: context_prefix,
-         usage_fragment: usage_fragment
-       }) do
-    case retained_usage_object(usage_fragment) do
-      {:ok, usage} ->
-        normalize_usage(usage, %{
-          "service_tier" => retained_service_tier(context_prefix, usage_fragment)
-        })
-
-      :error ->
-        nil
+  defp sse_event_type("event:" <> type, _previous) do
+    case String.trim(type) do
+      "" -> nil
+      value -> value
     end
   end
 
-  defp retained_usage_object(usage_fragment) do
-    with {object_offset, _length} <- :binary.match(usage_fragment, "{"),
-         {:ok, object_end} <- json_object_end(usage_fragment, object_offset),
-         object <- binary_part(usage_fragment, object_offset, object_end - object_offset),
-         {:ok, %{} = usage} <- Jason.decode(object) do
-      {:ok, usage}
-    else
-      _missing_or_invalid -> :error
-    end
-  end
-
-  defp retained_service_tier(context_prefix, usage_fragment) do
-    retained_service_tier_after_usage(usage_fragment) ||
-      retained_service_tier_before_usage(context_prefix)
-  end
-
-  defp retained_service_tier_after_usage(usage_fragment) do
-    usage_fragment
-    |> retained_suffix_after_usage_object()
-    |> retained_line_suffix()
-    |> retained_service_tier_matches()
-    |> List.first()
-  end
-
-  defp retained_service_tier_before_usage(context_prefix) do
-    context_prefix
-    |> retained_service_tier_matches()
-    |> List.last()
-  end
-
-  defp retained_suffix_after_usage_object(usage_fragment) do
-    with {object_offset, _length} <- :binary.match(usage_fragment, "{"),
-         {:ok, object_end} <- json_object_end(usage_fragment, object_offset) do
-      binary_part(usage_fragment, object_end, byte_size(usage_fragment) - object_end)
-    else
-      _missing_or_incomplete -> ""
-    end
-  end
-
-  defp json_object_end(binary, object_offset),
-    do: scan_json_object(binary, object_offset, 0, false, false)
-
-  defp scan_json_object(binary, offset, _depth, _in_string?, _escaped?)
-       when offset >= byte_size(binary),
-       do: :error
-
-  defp scan_json_object(binary, offset, depth, true, true),
-    do: scan_json_object(binary, offset + 1, depth, true, false)
-
-  defp scan_json_object(binary, offset, depth, true, false) do
-    case :binary.at(binary, offset) do
-      ?\\ -> scan_json_object(binary, offset + 1, depth, true, true)
-      ?" -> scan_json_object(binary, offset + 1, depth, false, false)
-      _other -> scan_json_object(binary, offset + 1, depth, true, false)
-    end
-  end
-
-  defp scan_json_object(binary, offset, depth, false, false) do
-    case :binary.at(binary, offset) do
-      ?" ->
-        scan_json_object(binary, offset + 1, depth, true, false)
-
-      ?{ ->
-        scan_json_object(binary, offset + 1, depth + 1, false, false)
-
-      ?} when depth == 1 ->
-        {:ok, offset + 1}
-
-      ?} when depth > 1 ->
-        scan_json_object(binary, offset + 1, depth - 1, false, false)
-
-      ?} ->
-        :error
-
-      _other ->
-        scan_json_object(binary, offset + 1, depth, false, false)
-    end
-  end
-
-  defp retained_line_suffix(body) do
-    case :binary.match(body, "\n") do
-      {newline_offset, _length} -> binary_part(body, 0, newline_offset)
-      :nomatch -> body
-    end
-  end
-
-  defp retained_service_tier_matches(body) do
-    @service_tier_pattern
-    |> Regex.scan(body, capture: :all_but_first)
-    |> Enum.map(fn [tier] -> tier end)
-  end
-
-  defp from_delimited_json_messages(body) do
-    body
-    |> String.split(~r/\r?\n/)
-    |> Enum.map(&String.trim/1)
-    |> usage_from_json_lines()
-  end
-
-  defp usage_from_json_lines(lines) do
-    Enum.reduce(lines, nil, fn line, acc ->
-      case Jason.decode(line) do
-        {:ok, decoded} -> latest_usage_candidate(decoded, acc)
-        {:error, _reason} -> acc
-      end
-    end)
-  end
+  defp sse_event_type(_line, previous), do: previous
 
   defp usage_from_decoded(decoded, default \\ true)
 
@@ -244,47 +161,6 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.ResponseUsage do
       end
     end)
   end
-
-  defp latest_usage_candidate(decoded, acc) do
-    case usage_from_decoded(decoded, false) do
-      %{status: "usage_known"} = usage -> usage
-      %{status: "usage_unknown"} = usage -> usage
-      nil -> acc
-    end
-  end
-
-  defp best_usage(nil, nil), do: nil
-
-  defp best_usage(%{status: "usage_known"} = usage, nil), do: usage
-  defp best_usage(nil, %{status: "usage_known"} = usage), do: usage
-
-  defp best_usage(
-         %{status: "usage_known"} = line_usage,
-         %{status: "usage_known"} = fragment_usage
-       ) do
-    if total_tokens(fragment_usage) > total_tokens(line_usage),
-      do: inherit_missing_service_tier(fragment_usage, line_usage),
-      else: line_usage
-  end
-
-  defp best_usage(%{status: "usage_unknown"}, %{status: "usage_known"} = usage), do: usage
-  defp best_usage(%{status: "usage_known"}, %{status: "usage_unknown"} = usage), do: usage
-  defp best_usage(%{status: "usage_unknown"} = usage, nil), do: usage
-  defp best_usage(nil, %{status: "usage_unknown"} = usage), do: usage
-  defp best_usage(%{status: "usage_unknown"} = usage, _fragment_usage), do: usage
-  defp best_usage(_line_usage, %{status: "usage_unknown"} = usage), do: usage
-
-  defp total_tokens(%{total_tokens: total_tokens}) when is_integer(total_tokens), do: total_tokens
-  defp total_tokens(_usage), do: 0
-
-  defp inherit_missing_service_tier(%{service_tier: tier} = usage, _fallback)
-       when is_binary(tier),
-       do: usage
-
-  defp inherit_missing_service_tier(usage, %{service_tier: tier}) when is_binary(tier),
-    do: Map.put(usage, :service_tier, tier)
-
-  defp inherit_missing_service_tier(usage, _fallback), do: usage
 
   defp normalize_usage(usage, envelope) do
     with {:ok, input_tokens} <-

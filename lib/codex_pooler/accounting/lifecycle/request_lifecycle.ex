@@ -767,7 +767,8 @@ defmodule CodexPooler.Accounting.RequestLifecycle do
         %{
           status: finalization.attempt_status,
           completed_at: finalization.timestamp,
-          upstream_status_code: finalization.response_status_code,
+          upstream_status_code:
+            Map.get(attrs, :upstream_status_code, finalization.response_status_code),
           retryable: Map.get(attrs, :retryable, false),
           network_error_code: finalization.last_error_code,
           error_message: finalization.error_message,

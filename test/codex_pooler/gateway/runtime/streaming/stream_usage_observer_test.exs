@@ -402,7 +402,7 @@ defmodule CodexPooler.Gateway.Runtime.Streaming.StreamUsageObserverTest do
     state =
       StreamUsageObserver.observe(
         state,
-        usage_event("response.completed", usage(16, 5, 21), "priority")
+        "\n\n" <> usage_event("response.completed", usage(16, 5, 21), "priority")
       )
 
     assert StreamUsageObserver.usage(state) == @known_usage
@@ -414,7 +414,7 @@ defmodule CodexPooler.Gateway.Runtime.Streaming.StreamUsageObserverTest do
       ~s(event: response.in_progress\ndata: {"type":"response.in_progress","usage":{"padding":") <>
         String.duplicate("x", StreamUsageObserver.max_candidate_bytes() - 256)
 
-    terminal = usage_event("response.completed", usage(16, 5, 21), "priority")
+    terminal = "\n\n" <> usage_event("response.completed", usage(16, 5, 21), "priority")
 
     for split_at <- 1..(byte_size("event:") - 1) do
       <<first::binary-size(^split_at), second::binary>> = terminal
@@ -478,7 +478,8 @@ defmodule CodexPooler.Gateway.Runtime.Streaming.StreamUsageObserverTest do
     terminal_state = StreamUsageObserver.observe(progress_state, terminal)
     later_state = StreamUsageObserver.observe(terminal_state, later)
 
-    assert StreamUsageObserver.resolve(empty, fallback) == fallback
+    assert StreamUsageObserver.resolve(empty, fallback).status == "usage_unknown"
+    assert StreamUsageObserver.resolve(nil, fallback) == fallback
     assert StreamUsageObserver.resolve(progress_state, fallback).total_tokens == 5
     assert StreamUsageObserver.resolve(terminal_state, fallback) == @known_usage
     assert StreamUsageObserver.resolve(later_state, fallback) == @known_usage

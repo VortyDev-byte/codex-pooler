@@ -15,6 +15,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.UpstreamWebsocketSession.Rece
   @moduledoc false
 
   alias __MODULE__.Delivery
+  alias CodexPooler.Gateway.Runtime.Finalization.ResponseUsage
   alias CodexPooler.Gateway.Transports.NativeCodexResponseControl.TurnSnapshot
   alias CodexPooler.Gateway.Transports.Streaming.RetainedBody
 
@@ -28,6 +29,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.UpstreamWebsocketSession.Rece
     :frame_observer,
     :native_codex_response_control,
     :response_id,
+    :response_usage,
     :terminal_upstream_error_code,
     :terminal_upstream_error_param,
     :termination_source,
@@ -67,6 +69,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.UpstreamWebsocketSession.Rece
           native_codex_response_control: TurnSnapshot.t() | nil,
           delivery: Delivery.t(),
           response_id: String.t() | nil,
+          response_usage: ResponseUsage.usage() | nil,
           terminal_upstream_error_code: String.t() | nil,
           terminal_upstream_error_param: String.t() | nil,
           termination_source: atom() | nil,
