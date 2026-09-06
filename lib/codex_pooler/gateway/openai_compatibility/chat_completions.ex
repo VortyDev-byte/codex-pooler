@@ -408,11 +408,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
           Map.put(
             delta,
             "tool_calls",
-            Enum.map(calls, fn call ->
-              if MapSet.member?(state.flat_custom_indexes, call["index"]),
-                do: flat_custom_call(call, state.flat_custom_names, true),
-                else: call
-            end)
+            Enum.map(calls, &stream_custom_call(&1, state))
           )
 
         _ ->
@@ -599,6 +595,12 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
   end
 
   defp flat_custom_call(call, _names, _force?), do: call
+
+  defp stream_custom_call(call, state) do
+    if MapSet.member?(state.flat_custom_indexes, call["index"]),
+      do: flat_custom_call(call, state.flat_custom_names, true),
+      else: call
+  end
 
   defp output_items(decoded) do
     decoded
