@@ -2,6 +2,7 @@ defmodule CodexPooler.Catalog.OpenAIPricingImporterTest do
   use CodexPooler.DataCase, async: false
 
   alias CodexPooler.Catalog.{OpenAIPricingImporter, PricingSnapshot}
+  alias CodexPooler.FakeUpstream
   alias CodexPooler.Repo
   alias Ecto.Adapters.SQL
   alias Ecto.Adapters.SQL.Sandbox
@@ -96,6 +97,98 @@ defmodule CodexPooler.Catalog.OpenAIPricingImporterTest do
     for value <- [nil, 42, [], %{}] do
       assert {:error, %{code: :invalid_path}} = OpenAIPricingImporter.import_file(value)
       assert {:error, %{code: :invalid_url}} = OpenAIPricingImporter.import_url(value)
+    end
+
+    assert Repo.aggregate(PricingSnapshot, :count) == before_count
+  end
+
+  test "missing files return a bounded read error without inserting rows" do
+    before_count = Repo.aggregate(PricingSnapshot, :count)
+
+    missing =
+      Path.join(System.tmp_dir!(), "missing-pricing-#{System.unique_integer([:positive])}")
+
+    assert {:error, %{code: :file_read_failed, message: message}} =
+             OpenAIPricingImporter.import_file(missing)
+
+    assert message == :enoent |> :file.format_error() |> to_string()
+    assert Repo.aggregate(PricingSnapshot, :count) == before_count
+  end
+
+  test "HTTP imports canonicalize aliases across repeat fetches without creating models" do
+    prices = %{"default" => %{"input" => 1, "output" => 2}}
+    payload = valid_payload("http-alias-model", %{"fast" => prices, "priority" => prices})
+
+    canonical_payload =
+      put_in(payload, ["models", "http-alias-model", "prices"], %{"priority" => prices})
+
+    models_before = Repo.aggregate(CodexPooler.Catalog.Model, :count)
+
+    {:ok, upstream} =
+      FakeUpstream.start_link(
+        {:sequence, [{:json, 200, payload}, {:json, 200, canonical_payload}]}
+      )
+
+    on_exit(fn -> FakeUpstream.stop(upstream) end)
+    url = FakeUpstream.url(upstream) <> "/pricing.json"
+
+    assert {:ok, %{inserted: 1}} = OpenAIPricingImporter.import_url(url)
+
+    snapshot =
+      Repo.one!(from row in PricingSnapshot, where: row.model_identifier == "http-alias-model")
+
+    assert snapshot.config["service_tier"] == "priority"
+    assert snapshot.source_url == url
+    assert {:ok, %{inserted: 0}} = OpenAIPricingImporter.import_url(url)
+
+    assert Repo.one!(
+             from row in PricingSnapshot, where: row.model_identifier == "http-alias-model"
+           ) == snapshot
+
+    assert Repo.aggregate(CodexPooler.Catalog.Model, :count) == models_before
+  end
+
+  test "HTTP status, invalid JSON and incompatible catalogs fail without writes" do
+    before_count = Repo.aggregate(PricingSnapshot, :count)
+
+    {:ok, upstream} =
+      FakeUpstream.start_link(
+        {:sequence,
+         [
+           {:raw_body, 503, "temporary upstream error", []},
+           {:raw_body, 200, "not JSON", []},
+           {:json, 200, %{"models" => []}}
+         ]}
+      )
+
+    on_exit(fn -> FakeUpstream.stop(upstream) end)
+    url = FakeUpstream.url(upstream) <> "/pricing.json"
+
+    assert {:error, %{code: :http_error, message: "pricing catalog returned HTTP 503"}} =
+             OpenAIPricingImporter.import_url(url)
+
+    assert {:error, %{code: :invalid_json}} = OpenAIPricingImporter.import_url(url)
+
+    assert {:error, %{code: :incompatible_pricing_catalog}} =
+             OpenAIPricingImporter.import_url(url)
+
+    assert Repo.aggregate(PricingSnapshot, :count) == before_count
+  end
+
+  test "malformed URL strings return bounded errors without writes" do
+    before_count = Repo.aggregate(PricingSnapshot, :count)
+
+    for url <- [
+          "",
+          "not a URL",
+          "ftp://example.com/pricing.json",
+          "http://",
+          "http://[invalid",
+          "http://example.com:bad",
+          "http://example.com:0",
+          "http://example.com:65536"
+        ] do
+      assert {:error, %{code: :invalid_url}} = OpenAIPricingImporter.import_url(url)
     end
 
     assert Repo.aggregate(PricingSnapshot, :count) == before_count
@@ -602,6 +695,9 @@ defmodule CodexPooler.Catalog.OpenAIPricingImporterTest do
       end,
       cache_write: fn snapshot ->
         Ecto.Changeset.change(snapshot, cache_write_token_micros: Decimal.new(9))
+      end,
+      unknown_cache_write: fn snapshot ->
+        Ecto.Changeset.change(snapshot, cache_write_token_micros: nil)
       end,
       output: fn snapshot ->
         Ecto.Changeset.change(snapshot, output_token_micros: Decimal.new(9))
