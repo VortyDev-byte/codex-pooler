@@ -119,6 +119,32 @@ Store the Pool API key outside the config and read it through environment expans
             "input": 828400,
             "output": 64000
           }
+        },
+        "gpt-6-astra": {
+          "id": "gpt-6-astra",
+          "name": "GPT-6 Astra via Codex Pooler",
+          "family": "gpt",
+          "attachment": true,
+          "reasoning": true,
+          "tool_call": true,
+          "temperature": false,
+          "options": {
+            "reasoningEffort": "high",
+            "reasoningSummary": "auto",
+            "textVerbosity": "medium",
+            "include": ["reasoning.encrypted_content"],
+            // Optional: priority processing may cost more than the default tier.
+            // "serviceTier": "priority"
+          },
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
+          "limit": {
+            "context": 828400,
+            "input": 828400,
+            "output": 64000
+          }
         }
       }
     }

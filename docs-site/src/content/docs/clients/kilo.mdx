@@ -78,6 +78,22 @@ For a deployed instance, add `~/.config/kilo/kilo.jsonc`:
             "input": 828400,
             "output": 64000
           }
+        },
+        "gpt-6-astra": {
+          "name": "GPT-6 Astra via Codex Pooler",
+          "tool_call": true,
+          "reasoning": true,
+          "temperature": false,
+          "attachment": true,
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
+          "limit": {
+            "context": 828400,
+            "input": 828400,
+            "output": 64000
+          }
         }
       }
     }

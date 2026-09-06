@@ -75,6 +75,17 @@ For a deployed instance, add:
           "input": ["text", "image"],
           "contextWindow": 828400,
           "maxTokens": 128000
+        },
+        {
+          "id": "gpt-6-astra",
+          "name": "GPT-6 Astra via Codex Pooler",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "xhigh": "xhigh"
+          },
+          "input": ["text", "image"],
+          "contextWindow": 828400,
+          "maxTokens": 128000
         }
       ]
     }
@@ -102,7 +113,8 @@ If you want plain `pi` or `pi -p ...` to start on Codex Pooler, add the defaults
   "enabledModels": [
     "codex-pooler/gpt-5.6-luna",
     "codex-pooler/gpt-5.6-terra",
-    "codex-pooler/gpt-5.6-sol"
+    "codex-pooler/gpt-5.6-sol",
+    "codex-pooler/gpt-6-astra"
   ],
   "compaction": {
     "reserveTokens": 128000

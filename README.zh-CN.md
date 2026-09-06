@@ -244,6 +244,32 @@ websocket 路由，不是 OpenAI Realtime SDK 兼容性。
             "input": 828400,
             "output": 64000
           }
+        },
+        "gpt-6-astra": {
+          "id": "gpt-6-astra",
+          "name": "GPT-6 Astra",
+          "family": "gpt",
+          "attachment": true,
+          "reasoning": true,
+          "tool_call": true,
+          "temperature": false,
+          "options": {
+            "reasoningEffort": "high",
+            "reasoningSummary": "auto",
+            "textVerbosity": "medium",
+            "include": ["reasoning.encrypted_content"],
+            // 可选：priority processing 的费用可能高于默认层级。
+            // "serviceTier": "priority"
+          },
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
+          "limit": {
+            "context": 828400,
+            "input": 828400,
+            "output": 64000
+          }
         }
       }
     }
@@ -522,6 +548,15 @@ Codex Pooler，并使用当前 OpenClaw 运行时 id。
             contextTokens: 828400,
             maxTokens: 128000,
           },
+          {
+            id: "gpt-6-astra",
+            name: "GPT-6 Astra via Codex Pooler",
+            reasoning: true,
+            input: ["text", "image"],
+            contextWindow: 828400,
+            contextTokens: 828400,
+            maxTokens: 128000,
+          },
         ],
       },
     },
@@ -775,6 +810,17 @@ npm install -g --ignore-scripts @earendil-works/pi-coding-agent
           "input": ["text", "image"],
           "contextWindow": 828400,
           "maxTokens": 128000
+        },
+        {
+          "id": "gpt-6-astra",
+          "name": "GPT-6 Astra via Codex Pooler",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "xhigh": "xhigh"
+          },
+          "input": ["text", "image"],
+          "contextWindow": 828400,
+          "maxTokens": 128000
         }
       ]
     }
@@ -806,7 +852,8 @@ Pi 接受自定义模型的 `contextWindow` 和 `maxTokens`；它没有 `context
   "enabledModels": [
     "codex-pooler/gpt-5.6-luna",
     "codex-pooler/gpt-5.6-terra",
-    "codex-pooler/gpt-5.6-sol"
+    "codex-pooler/gpt-5.6-sol",
+    "codex-pooler/gpt-6-astra"
   ],
   "compaction": {
     "reserveTokens": 128000
@@ -888,6 +935,16 @@ providers:
           streamIdleTimeoutMs: 300000
         contextWindow: 828400
         maxTokens: 128000
+      - id: gpt-6-astra
+        name: GPT-6 Astra via Codex Pooler
+        reasoning: true
+        input:
+          - text
+          - image
+        compat:
+          streamIdleTimeoutMs: 300000
+        contextWindow: 828400
+        maxTokens: 128000
 ```
 
 `apiKey: CODEX_POOLER_API_KEY` 会让 OMP 在运行时解析该环境变量。
@@ -948,6 +1005,7 @@ enabledModels:
   - codex-pooler/gpt-5.6-luna
   - codex-pooler/gpt-5.6-terra
   - codex-pooler/gpt-5.6-sol
+  - codex-pooler/gpt-6-astra
 modelProviderOrder:
   - codex-pooler
 modelRoles:
@@ -1045,6 +1103,22 @@ npm install -g @kilocode/cli@latest
         },
         "gpt-5.6-sol": {
           "name": "GPT-5.6 Sol via Codex Pooler",
+          "tool_call": true,
+          "reasoning": true,
+          "temperature": false,
+          "attachment": true,
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
+          "limit": {
+            "context": 828400,
+            "input": 828400,
+            "output": 64000
+          }
+        },
+        "gpt-6-astra": {
+          "name": "GPT-6 Astra via Codex Pooler",
           "tool_call": true,
           "reasoning": true,
           "temperature": false,
@@ -1219,6 +1293,16 @@ Aider 版本不识别 `gpt-5.6-terra`，请用 Aider 独立的模型 metadata JS
     "supports_reasoning": true
   },
   "openai/gpt-5.6-sol": {
+    "max_tokens": 828400,
+    "max_input_tokens": 700400,
+    "max_output_tokens": 128000,
+    "litellm_provider": "openai",
+    "mode": "chat",
+    "supports_function_calling": true,
+    "supports_vision": true,
+    "supports_reasoning": true
+  },
+  "openai/gpt-6-astra": {
     "max_tokens": 828400,
     "max_input_tokens": 700400,
     "max_output_tokens": 128000,
@@ -1502,6 +1586,7 @@ providers:
       - gpt-5.6-luna
       - gpt-5.6-terra
       - gpt-5.6-sol
+      - gpt-6-astra
 default_model:
   provider: customai
   model: gpt-5.6-terra
