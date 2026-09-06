@@ -617,14 +617,16 @@ OpenAI.
 Hermes works best through its `openai-api` provider with the Responses transport
 forced explicitly. This is the recommended Codex Pooler setup. Keep the Pool API
 key in `~/.hermes/.env` and point the provider config at Codex Pooler's `/v1`
-surface. Include Hermes' `image_gen` block when you want image generation or
-edits through the same OpenAI-compatible path. The `mcp_servers` block is an
-optional operator-only add-on for read-only metadata tools; Codex Pooler works
-without it.
+surface. Include Hermes' `image_gen` block for image generation or edits and
+the `stt` block for speech-to-text through the same OpenAI-compatible path.
+The `mcp_servers` block is an optional operator-only add-on for read-only
+metadata tools; Codex Pooler works without it.
 
 ```bash
 OPENAI_API_KEY=<pool-api-key>
 OPENAI_BASE_URL=http://localhost:4000/v1
+# Required for the optional speech-to-text setup below:
+STT_OPENAI_BASE_URL=http://localhost:4000/v1
 # Optional operator-only MCP metadata add-on:
 CODEX_POOLER_MCP_KEY=<operator-mcp-token>
 ```
@@ -645,6 +647,12 @@ image_gen:
   provider: openai
   model: gpt-image-2-medium
 
+stt:
+  enabled: true
+  provider: openai
+  openai:
+    model: gpt-4o-transcribe
+
 compression:
   threshold: 0.95
 
@@ -662,6 +670,13 @@ mcp_servers:
     timeout: 120
     connect_timeout: 15
 ```
+
+Speech-to-text uses `POST /v1/audio/transcriptions`. Hermes' audio client needs
+`STT_OPENAI_BASE_URL`; it does not inherit `model.base_url` or `OPENAI_BASE_URL`.
+It uses `OPENAI_API_KEY` unless `VOICE_TOOLS_OPENAI_KEY` overrides it. Keep the
+explicit `gpt-4o-transcribe` model because Hermes' default `whisper-1` is not
+supported by Codex Pooler. This enables transcription only; text-to-speech and
+Realtime audio are not supported.
 
 Image generation note: `image_gen.provider: openai` is the recommended image
 provider for this setup. Hermes exposes `gpt-image-2-low`,

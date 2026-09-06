@@ -568,13 +568,16 @@ account 可能暂时报告不同上限，选中的 272000-token profile 会公�
 Hermes 通过 `openai-api` provider 并显式强制 Responses 传输时效果最好。这是
 推荐的 Codex Pooler 设置。把 Pool API 密钥放在 `~/.hermes/.env` 中，并把
 provider 配置指向 Codex Pooler 的 `/v1` 接口。当你希望通过同一个 OpenAI 兼容
-路径进行图片生成或编辑时，包含 Hermes 的 `image_gen` 配置块。`mcp_servers`
+路径进行图片生成或编辑时，包含 Hermes 的 `image_gen` 配置块；需要语音转文字时，
+添加 `stt` 配置块。`mcp_servers`
 配置块是可选的、仅运营者使用的只读元数据工具附加能力；没有它 Codex Pooler
 也能工作。
 
 ```bash
 OPENAI_API_KEY=<pool-api-key>
 OPENAI_BASE_URL=http://localhost:4000/v1
+# Required for the optional speech-to-text setup below:
+STT_OPENAI_BASE_URL=http://localhost:4000/v1
 # Optional operator-only MCP metadata add-on:
 CODEX_POOLER_MCP_KEY=<operator-mcp-token>
 ```
@@ -595,6 +598,12 @@ image_gen:
   provider: openai
   model: gpt-image-2-medium
 
+stt:
+  enabled: true
+  provider: openai
+  openai:
+    model: gpt-4o-transcribe
+
 compression:
   threshold: 0.95
 
@@ -612,6 +621,12 @@ mcp_servers:
     timeout: 120
     connect_timeout: 15
 ```
+
+语音转文字使用 `POST /v1/audio/transcriptions`。Hermes 的音频客户端需要
+`STT_OPENAI_BASE_URL`，不会继承 `model.base_url` 或 `OPENAI_BASE_URL`。
+它使用 `OPENAI_API_KEY`，但 `VOICE_TOOLS_OPENAI_KEY` 会覆盖该密钥。请显式设置
+`gpt-4o-transcribe`，因为 Codex Pooler 不支持 Hermes 默认的 `whisper-1`。
+此配置仅启用语音转文字，不支持文字转语音或 Realtime 音频。
 
 当前 Codex Pooler release 会在 `/v1/models` 上暴露 SDK 可读取的 `context_length`，
 该值由选中的原生 raw context window 及其 effective percentage 展平而来。因为不同

@@ -294,7 +294,26 @@ The OpenAI-compatible `/v1` surface supports or translates selected routes only:
 
 The `/v1` surface is compatibility over Codex routing, not a separate OpenAI engine. Supported requests still require a Pool API key and a Pool with eligible upstream capacity for the requested model.
 
+### Image generation and edits
+
+Use `gpt-image-2` for current image examples. It is the [latest GPT Image model](https://developers.openai.com/api/docs/models/gpt-image-2); older supported identifiers remain available for compatibility. Media identifiers do not have to appear in the Pool's model catalog for these translated routes to work.
+
+```js
+const image = await client.images.generate({
+  model: "gpt-image-2",
+  prompt: "A simple watercolor landscape",
+  size: "1024x1024",
+  quality: "medium",
+});
+```
+
+The translated Images routes accept `size` values `auto`, `1024x1024`, `1024x1536` and `1536x1024`, with one image per request. This is a Codex-backed subset; it does not expose every resolution or option offered by the OpenAI Images API.
+
 ### Audio transcriptions
+
+Audio support covers speech-to-text transcription. Text-to-speech (`POST /v1/audio/speech`), audio translation (`POST /v1/audio/translations`), and
+Realtime voice sessions are not supported. Use a provider that supports those
+endpoints when a client needs spoken output or live voice conversations.
 
 `POST /v1/audio/transcriptions` accepts `gpt-transcribe` as a caller alias. The
 gateway uses the fixed canonical backend identity `gpt-4o-transcribe`. The alias
@@ -344,6 +363,8 @@ print(transcription.text)
 omitted. Nonempty lists retain caller order and duplicate entries. Responses omit
 language-detection fields. This documents the accepted request shape only, not
 transcription quality, model discovery, or general Audio API coverage.
+
+A successful transcription response must contain a string `text` field. An empty string is valid for silence; missing or invalid text and error objects are reported as upstream failures rather than successful transcriptions.
 
 `POST /v1/responses` lifts system and developer input-message text into top-level `instructions` before dispatching to Codex-compatible work. Streaming `/v1/responses` and `/v1/chat/completions` return early upstream terminal errors as the first public SSE event or data chunk, without synthetic assistant/success prefixes. Non-streaming failures remain OpenAI-shaped JSON errors.
 
