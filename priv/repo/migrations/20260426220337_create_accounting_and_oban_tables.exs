@@ -191,7 +191,7 @@ defmodule CodexPooler.Repo.Migrations.CreateAccountingAndObanTables do
 
   defp statements(sql) do
     sql
-    |> String.split(~r/; *\n/,
+    |> String.split(~r/;\s*/,
       trim: true
     )
     |> Enum.map(&String.trim/1)
