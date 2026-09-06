@@ -26,9 +26,12 @@ defmodule CodexPooler.Upstreams.SavedResetRedemptionTest do
   alias CodexPooler.Upstreams.SavedResets.AutoEligibility
   alias CodexPooler.Upstreams.SavedResets.ProbeLease
   alias CodexPooler.Upstreams.SavedResets.RedemptionLifecycle
-  alias CodexPooler.Upstreams.Schemas.{PoolUpstreamAssignment, UpstreamIdentity}
+  alias CodexPooler.Upstreams.Schemas.{EncryptedSecret, PoolUpstreamAssignment, UpstreamIdentity}
   alias Ecto.Adapters.SQL
   alias Ecto.Adapters.SQL.Sandbox
+
+  @cohort_fixture_transaction_timeout 25_000
+  @cohort_fixture_task_timeout 30_000
 
   setup do
     on_exit(fn -> :ok end)
@@ -4935,7 +4938,18 @@ defmodule CodexPooler.Upstreams.SavedResetRedemptionTest do
       assert get_in(persisted.metadata, ["saved_reset_redemption"]) == nil
     end
 
+    @tag :saved_reset_cohort_fixture_cleanup
+    test "failed cohort creation removes partial committed rows and preserves another cohort" do
+      assert_failed_cohort_fixture_cleanup!(:failure)
+    end
+
+    @tag :saved_reset_cohort_fixture_cleanup
+    test "timed out cohort creation stops its task and removes partial committed rows" do
+      assert_failed_cohort_fixture_cleanup!(:timeout)
+    end
+
     @tag :saved_reset_cohort_lock_200
+    @tag timeout: 90_000
     test "a 200-member cohort uses one exact ordered identity lock and one assignment lock" do
       {:ok, fake} = codex_reset_fake(0)
       on_exit(fn -> FakeUpstream.stop(fake) end)
@@ -8252,53 +8266,177 @@ defmodule CodexPooler.Upstreams.SavedResetRedemptionTest do
     end)
   end
 
-  defp committed_gateway_auto_cohort_fixture!(fake, pool_mode, identity_count) do
-    run_unboxed(fn ->
-      unique = Ecto.UUID.generate()
-      as_of = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+  defp committed_gateway_auto_cohort_fixture!(fake, pool_mode, identity_count, opts \\ []) do
+    unique = Ecto.UUID.generate()
+    account_ids = Enum.map(0..(identity_count - 1), &"acct_cohort_lock_#{unique}_#{&1}")
+    pool_slugs = gateway_auto_cohort_pool_slugs(pool_mode, unique, identity_count)
+    cleanup = fn -> cleanup_owned_cohort_fixture!(account_ids, pool_slugs) end
+    on_exit(cleanup)
 
-      pools = gateway_auto_cohort_pools(pool_mode, unique, identity_count)
+    try do
+      run_cohort_fixture_task!(
+        fn ->
+          {:ok, fixture} =
+            Repo.transact(
+              fn ->
+                {:ok,
+                 create_gateway_auto_cohort_fixture!(
+                   fake,
+                   pool_mode,
+                   identity_count,
+                   unique,
+                   opts
+                 )}
+              end,
+              timeout: @cohort_fixture_transaction_timeout
+            )
 
-      entries =
-        Enum.map(0..(identity_count - 1), fn index ->
-          pool = gateway_auto_cohort_pool(pools, pool_mode, index)
+          fixture
+        end,
+        Keyword.get(opts, :timeout, @cohort_fixture_task_timeout)
+      )
+    catch
+      kind, reason ->
+        stacktrace = __STACKTRACE__
+        cleanup.()
+        :erlang.raise(kind, reason, stacktrace)
+    end
+  end
 
-          %{assignment: assignment, identity: identity} =
-            active_upstream_assignment_fixture(pool, %{
-              account_label: "Cohort lock account #{unique} #{index}",
-              chatgpt_account_id: "acct_cohort_lock_#{unique}_#{index}",
-              metadata: %{
-                "usage_base_url" => FakeUpstream.url(fake),
-                "saved_resets" => %{
-                  "status" => "reported",
-                  "available_count" => 1,
-                  "source" => "codex_usage_api",
-                  "path_style" => "codex_api",
-                  "observed_at" => DateTime.to_iso8601(as_of),
-                  "usage_path" => "/api/codex/usage",
-                  "reason" => nil
-                }
+  defp create_gateway_auto_cohort_fixture!(fake, pool_mode, identity_count, unique, opts) do
+    as_of = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+    after_entry = Keyword.get(opts, :after_entry, fn _entry -> :ok end)
+
+    pools = gateway_auto_cohort_pools(pool_mode, unique, identity_count)
+
+    entries =
+      Enum.map(0..(identity_count - 1), fn index ->
+        pool = gateway_auto_cohort_pool(pools, pool_mode, index)
+
+        %{assignment: assignment, identity: identity} =
+          active_upstream_assignment_fixture(pool, %{
+            account_label: "Cohort lock account #{unique} #{index}",
+            chatgpt_account_id: "acct_cohort_lock_#{unique}_#{index}",
+            metadata: %{
+              "usage_base_url" => FakeUpstream.url(fake),
+              "saved_resets" => %{
+                "status" => "reported",
+                "available_count" => 1,
+                "source" => "codex_usage_api",
+                "path_style" => "codex_api",
+                "observed_at" => DateTime.to_iso8601(as_of),
+                "usage_path" => "/api/codex/usage",
+                "reason" => nil
               }
-            })
+            }
+          })
 
-          identity = enable_saved_reset_auto_redeem!(identity)
+        identity = enable_saved_reset_auto_redeem!(identity)
 
-          upsert_weekly_exhausted_quota!(identity,
-            observed_at: as_of,
-            last_sync_at: as_of,
-            reset_at: DateTime.add(as_of, 2, :hour)
-          )
+        upsert_weekly_exhausted_quota!(identity,
+          observed_at: as_of,
+          last_sync_at: as_of,
+          reset_at: DateTime.add(as_of, 2, :hour)
+        )
 
-          %{assignment_id: assignment.id, identity_id: identity.id}
-        end)
+        entry = %{assignment_id: assignment.id, identity_id: identity.id}
 
-      %{
-        as_of: as_of,
-        assignment_ids: Enum.map(entries, & &1.assignment_id),
-        fake: fake,
-        identity_ids: Enum.map(entries, & &1.identity_id),
-        pool_ids: Enum.map(pools, & &1.id)
-      }
+        after_entry.(Map.put(entry, :pool_ids, Enum.map(pools, & &1.id)))
+
+        entry
+      end)
+
+    %{
+      as_of: as_of,
+      assignment_ids: Enum.map(entries, & &1.assignment_id),
+      fake: fake,
+      identity_ids: Enum.map(entries, & &1.identity_id),
+      pool_ids: Enum.map(pools, & &1.id)
+    }
+  end
+
+  defp cleanup_owned_cohort_fixture!(account_ids, pool_slugs) do
+    run_unboxed(fn ->
+      Repo.delete_all(
+        from identity in UpstreamIdentity, where: identity.chatgpt_account_id in ^account_ids
+      )
+
+      Repo.delete_all(from pool in Pool, where: pool.slug in ^pool_slugs)
+    end)
+  end
+
+  defp run_cohort_fixture_task!(fun, timeout) do
+    task =
+      Task.async(fn ->
+        try do
+          {:ok, Sandbox.unboxed_run(Repo, fun)}
+        catch
+          kind, reason -> {:raised, kind, reason, __STACKTRACE__}
+        end
+      end)
+
+    case Task.yield(task, timeout) || Task.shutdown(task, :brutal_kill) do
+      {:ok, {:ok, fixture}} -> fixture
+      {:ok, {:raised, kind, reason, stacktrace}} -> :erlang.raise(kind, reason, stacktrace)
+      nil -> raise "timed out creating committed cohort fixture"
+    end
+  end
+
+  defp assert_failed_cohort_fixture_cleanup!(failure) do
+    {:ok, fake} = codex_reset_fake(0)
+    on_exit(fn -> FakeUpstream.stop(fake) end)
+    sentinel = committed_gateway_auto_cohort_fixture!(fake, :same_pool, 1)
+    on_exit(fn -> cleanup_committed_gateway_auto_cohort_fixture!(sentinel) end)
+    parent = self()
+    barrier = make_ref()
+
+    after_entry = fn entry ->
+      send(parent, {barrier, self(), entry})
+
+      case failure do
+        :failure -> raise "injected cohort fixture failure"
+        :timeout -> receive do: ({^barrier, :release} -> :ok)
+      end
+    end
+
+    message =
+      if failure == :failure,
+        do: "injected cohort fixture failure",
+        else: "timed out creating committed cohort fixture"
+
+    ExUnit.CaptureLog.capture_log(fn ->
+      assert_raise RuntimeError, message, fn ->
+        committed_gateway_auto_cohort_fixture!(fake, :cross_pool, 2,
+          after_entry: after_entry,
+          timeout: 5_000
+        )
+      end
+    end)
+
+    assert_receive {^barrier, task_pid, partial}, 1_000
+    owned = %{identity_ids: [partial.identity_id], pool_ids: partial.pool_ids}
+    on_exit(fn -> cleanup_committed_gateway_auto_cohort_fixture!(owned) end)
+    refute Process.alive?(task_pid)
+
+    run_unboxed(fn ->
+      refute Repo.exists?(
+               from identity in UpstreamIdentity, where: identity.id == ^partial.identity_id
+             )
+
+      refute Repo.exists?(
+               from assignment in PoolUpstreamAssignment,
+                 where: assignment.id == ^partial.assignment_id
+             )
+
+      refute Repo.exists?(from pool in Pool, where: pool.id in ^partial.pool_ids)
+
+      refute Repo.exists?(
+               from secret in EncryptedSecret,
+                 where: secret.upstream_identity_id == ^partial.identity_id
+             )
+
+      assert Repo.get!(UpstreamIdentity, hd(sentinel.identity_ids))
+      assert Repo.get!(Pool, hd(sentinel.pool_ids))
     end)
   end
 
@@ -8325,6 +8463,12 @@ defmodule CodexPooler.Upstreams.SavedResetRedemptionTest do
       pool_fixture(%{slug: "cohort-lock-#{unique}-#{index}"})
     end)
   end
+
+  defp gateway_auto_cohort_pool_slugs(:same_pool, unique, _identity_count),
+    do: ["cohort-lock-#{unique}"]
+
+  defp gateway_auto_cohort_pool_slugs(:cross_pool, unique, identity_count),
+    do: Enum.map(1..identity_count, &"cohort-lock-#{unique}-#{&1}")
 
   defp redeem_gateway_auto_target!(fixture, target_index, cohort_identity_ids, opts \\ []) do
     assignment = Repo.get!(PoolUpstreamAssignment, Enum.at(fixture.assignment_ids, target_index))
