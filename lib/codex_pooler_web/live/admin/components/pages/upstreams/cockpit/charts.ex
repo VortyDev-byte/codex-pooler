@@ -199,14 +199,14 @@ defmodule CodexPoolerWeb.Admin.UpstreamCockpitComponents.Charts do
             class="btn btn-ghost btn-xs gap-1.5 text-base-content/65"
           >
             <.icon name="hero-arrow-path" class="size-3.5" />
-            <span>Refresh</span>
+            <span class="admin-control-label">Refresh</span>
           </button>
           <.link
             id="request-health-chart-logs-link"
             href={Formatting.request_logs_path(@cockpit)}
             class="btn btn-ghost btn-xs gap-1.5 text-base-content/65"
           >
-            <span>Request logs</span>
+            <span class="admin-control-label">Request logs</span>
             <.icon name="hero-arrow-right" class="size-3" />
           </.link>
         </div>

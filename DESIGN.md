@@ -364,8 +364,11 @@ appears only at micro sizes.
 - **Family:** Roboto Condensed, self-hosted TTFs at weights 400–900
   (`@font-face` in `app.css`), wired as `--font-sans` and on `body`.
   Fallbacks: `ui-sans-serif, system-ui, sans-serif`. Note the face's
-  asymmetric vertical metrics: centered labels often need `leading-none` plus
-  flex centering rather than line-height tricks.
+  asymmetric vertical metrics: centering a line box does not necessarily center
+  its visible letters. Compact cockpit header actions use `admin-control-label`
+  on the label span: `text-box: trim-both cap alphabetic` lets flex center the
+  font's cap-to-baseline box beside its icon. Unsupported browsers retain the
+  existing line box; icons and control hit areas keep their original geometry.
 - **Mono:** the Tailwind `font-mono` stack (`ui-monospace`, Menlo, …) is data
   dress, used for IDs, prefixes, versions, tabular values
   (`font-mono tabular-nums`), the sidebar nav labels, and the OTP slots. Mono
@@ -852,8 +855,8 @@ of actions, lifecycle warning block via `ReconciliationStatus`.
   `progress-striped`; the fill then tracks the observed credit balance against
   the last pre-burn balance baseline and the detail shows only the current
   provider balance, such as `500 credits`. An explicit depleted balance remains
-  visible as `0 credits` without stripes; an omitted provider balance reads
-  `credits not reported` instead of leaving an unexplained blank. The UI never
+  visible as `0 credits` without stripes; an omitted, stale, or unavailable
+  provider balance has no credit footer. The UI never
   renders an inferred `balance / capacity` denominator.
 - **Motion:** known values use width/color transitions 260/180ms; cards with
   recent burn run the gloss sweep. An unreported value omits `value`, keeps

@@ -1222,6 +1222,11 @@ body {
   padding-inline: calc(0.25rem * 2);
 }
 
+/* Center compact action labels by the font's letters rather than its leading. */
+.admin-control-label {
+  text-box: trim-both cap alphabetic;
+}
+
 .btn.btn-primary {
   border-color: var(--codex-primary-border);
   background-color: var(--color-primary);

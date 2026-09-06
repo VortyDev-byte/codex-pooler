@@ -406,7 +406,7 @@ defmodule CodexPoolerWeb.Admin.UpstreamCockpitComponents.Sections do
             href={Formatting.request_logs_path(@cockpit)}
             class="btn btn-ghost btn-xs gap-1.5 text-base-content/65"
           >
-            <span>Request logs</span>
+            <span class="admin-control-label">Request logs</span>
             <.icon name="hero-arrow-right" class="size-3" />
           </.link>
           <.link
@@ -414,7 +414,7 @@ defmodule CodexPoolerWeb.Admin.UpstreamCockpitComponents.Sections do
             href={Formatting.audit_logs_path(@cockpit)}
             class="btn btn-ghost btn-xs gap-1.5 text-base-content/65"
           >
-            <span>Audit logs</span>
+            <span class="admin-control-label">Audit logs</span>
             <.icon name="hero-arrow-right" class="size-3" />
           </.link>
           <.link
@@ -422,7 +422,7 @@ defmodule CodexPoolerWeb.Admin.UpstreamCockpitComponents.Sections do
             href={Formatting.jobs_path(@cockpit)}
             class="btn btn-ghost btn-xs gap-1.5 text-base-content/65"
           >
-            <span>Jobs</span>
+            <span class="admin-control-label">Jobs</span>
             <.icon name="hero-arrow-right" class="size-3" />
           </.link>
         </div>
