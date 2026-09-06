@@ -1,0 +1,18 @@
+# Local Vortex Codex Pooler overlay.
+#
+# Keep the upstream compose file untouched: start with both files so this
+# checkout (rather than the published upstream image) is built and run.
+name: vortex-codex-pooler
+
+services:
+  migrate:
+    build: .
+    image: vortex-codex-pooler:local
+
+  app:
+    build: .
+    image: vortex-codex-pooler:local
+
+volumes:
+  codex-pooler-postgres:
+    name: vortex-codex-pooler-postgres

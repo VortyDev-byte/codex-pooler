@@ -80,6 +80,37 @@ defmodule CodexPooler.Catalog.Sync.DiscoveryTest do
     refute Map.has_key?(second_headers, "cookie")
   end
 
+  test "preserves an account-advertised Astra slug while dispatching its upstream id" do
+    source = %{assignment: %{id: Ecto.UUID.generate()}}
+
+    assert {:ok, [^source], [], [model]} =
+             Discovery.discover_models([source], fn ^source ->
+               {:ok,
+                [
+                  %{
+                    "id" => "gpt-6-astra-rollout-2026-09-07",
+                    "slug" => "gpt-6-astra",
+                    "display_name" => "GPT-6 Astra",
+                    "capabilities" => %{
+                      "responses" => true,
+                      "streaming" => true,
+                      "tools" => true,
+                      "reasoning" => true
+                    }
+                  }
+                ]}
+             end)
+
+    assert model.exposed_model_id == "gpt-6-astra"
+    assert model.upstream_model_id == "gpt-6-astra-rollout-2026-09-07"
+    assert model.pricing_ref == "openai/gpt-6-astra"
+    assert model.display_name == "GPT-6 Astra"
+    assert model.supports_responses
+    assert model.supports_streaming
+    assert model.supports_tools
+    assert model.supports_reasoning
+  end
+
   defp assert_codex_client_identity_headers(headers) do
     version = CodexClientIdentity.version()
 

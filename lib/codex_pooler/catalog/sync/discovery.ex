@@ -126,11 +126,18 @@ defmodule CodexPooler.Catalog.Sync.Discovery do
   # Reason: model imports accept multiple upstream metadata spellings.
   # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp normalize_model_attrs(attrs) when is_map(attrs) do
+    # The Codex catalog's `slug` is its public request identifier.  New models
+    # can have a rollout-specific internal `id`, so do not expose that value to
+    # clients when the catalog supplies a slug.  We still retain `id` as the
+    # upstream request value; this keeps the model catalog and the dispatched
+    # request bound to the same per-account entitlement evidence.
     upstream_model_id =
       string_attr(attrs, "id") || string_attr(attrs, :id) || string_attr(attrs, "slug") ||
         string_attr(attrs, :slug)
 
-    exposed_model_id = string_attr(attrs, "exposed_model_id") || upstream_model_id
+    exposed_model_id =
+      string_attr(attrs, "exposed_model_id") || string_attr(attrs, "slug") ||
+        string_attr(attrs, :slug) || upstream_model_id
 
     display_name =
       string_attr(attrs, "display_name") || string_attr(attrs, "name") || upstream_model_id
@@ -182,7 +189,7 @@ defmodule CodexPooler.Catalog.Sync.Discovery do
       Map.put(
         model,
         :pricing_ref,
-        model.pricing_ref || if(model.upstream_model_id, do: "openai/#{model.upstream_model_id}")
+        model.pricing_ref || if(model.exposed_model_id, do: "openai/#{model.exposed_model_id}")
       )
     end)
   end
