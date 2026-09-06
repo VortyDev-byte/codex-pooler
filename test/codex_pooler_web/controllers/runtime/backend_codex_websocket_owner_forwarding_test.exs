@@ -9890,51 +9890,64 @@ defmodule CodexPoolerWeb.Runtime.BackendCodexWebsocketOwnerForwardingTest do
     assert {:ok, net_kernel_pid} = :net_kernel.start([node_name, :shortnames])
 
     on_exit(fn ->
-      monitor = Process.monitor(net_kernel_pid)
-      assert :ok = :net_kernel.stop()
+      try do
+        monitor = Process.monitor(net_kernel_pid)
+        deadline = System.monotonic_time(:millisecond) + @handoff_detection_timeout_ms
+        assert :ok = :net_kernel.stop()
 
-      assert_receive {:DOWN, ^monitor, :process, ^net_kernel_pid, _reason},
-                     @handoff_detection_timeout_ms
+        assert_receive {:DOWN, ^monitor, :process, ^net_kernel_pid, _reason},
+                       @handoff_detection_timeout_ms
 
-      await_local_node_stopped!()
-
-      case previous_partition_guard do
-        {:ok, value} -> Application.put_env(:kernel, :prevent_overlapping_partitions, value)
-        :error -> Application.delete_env(:kernel, :prevent_overlapping_partitions)
+        await_local_node_stopped!(deadline)
+      after
+        case previous_partition_guard do
+          {:ok, value} -> Application.put_env(:kernel, :prevent_overlapping_partitions, value)
+          :error -> Application.delete_env(:kernel, :prevent_overlapping_partitions)
+        end
       end
     end)
   end
 
   defp start_test_distribution!(_distributed_node), do: :ok
 
-  defp await_local_node_stopped!(attempts \\ 1_000)
-
-  defp await_local_node_stopped!(0), do: flunk("local distribution did not stop")
-
-  defp await_local_node_stopped!(attempts) do
+  defp await_local_node_stopped!(deadline) do
     if node() == :nonode@nohost do
       :ok
     else
-      yield_once({:await_local_node_stopped, attempts})
-      await_local_node_stopped!(attempts - 1)
+      remaining = deadline - System.monotonic_time(:millisecond)
+      assert remaining > 0, "local distribution did not stop"
+
+      receive do
+      after
+        min(@epmd_ready_poll_ms, remaining) -> await_local_node_stopped!(deadline)
+      end
     end
   end
 
   defp remote_node_connected?(peer_node), do: peer_node in Node.list(:connected)
 
-  defp await_peer_down!(peer_name, peer_node, attempts \\ 1_000)
+  defp await_peer_down!(peer_name, peer_node),
+    do:
+      await_peer_down!(
+        peer_name,
+        peer_node,
+        System.monotonic_time(:millisecond) + @handoff_detection_timeout_ms
+      )
 
-  defp await_peer_down!(_peer_name, _peer_node, 0), do: flunk("peer did not stop")
-
-  defp await_peer_down!(peer_name, peer_node, attempts) do
+  defp await_peer_down!(peer_name, peer_node, deadline) do
     {:ok, names} = :erl_epmd.names()
 
     if peer_node not in Node.list(:connected) and
          not Enum.any?(names, fn {name, _port} -> name == Atom.to_charlist(peer_name) end) do
       :ok
     else
-      yield_once({:await_peer_down, peer_name, attempts})
-      await_peer_down!(peer_name, peer_node, attempts - 1)
+      remaining = deadline - System.monotonic_time(:millisecond)
+      assert remaining > 0, "peer did not stop"
+
+      receive do
+      after
+        min(@epmd_ready_poll_ms, remaining) -> await_peer_down!(peer_name, peer_node, deadline)
+      end
     end
   end
 
