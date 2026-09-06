@@ -376,7 +376,7 @@ defmodule CodexPooler.Gateway.Runtime.ClientRetryTest do
   end
 
   defp successor_claim!(setup) do
-    now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+    %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
     witness_digest = :crypto.strong_rand_bytes(32)
     semantic_digest = :crypto.strong_rand_bytes(32)
 

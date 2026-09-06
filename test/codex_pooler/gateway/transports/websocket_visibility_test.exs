@@ -4,6 +4,7 @@ defmodule CodexPooler.Gateway.Transports.WebsocketVisibilityTest do
   import CodexPooler.PoolerFixtures
   import ExUnit.CaptureLog
 
+  alias CodexPooler.Accounting
   alias CodexPooler.Accounting.LedgerEntry
   alias CodexPooler.Accounting.RequestReplay
   alias CodexPooler.FakeUpstream
@@ -225,6 +226,22 @@ defmodule CodexPooler.Gateway.Transports.WebsocketVisibilityTest do
           correlation_id: "visibility"
         })
 
+      options =
+        Websocket.websocket_owner_response_options(
+          %{},
+          fixture.session,
+          fixture.session.owner_lease_token,
+          downstream
+        )
+
+      assert {:ok, _request} =
+               Accounting.bind_websocket_owner(
+                 %{pool: fixture.pool, api_key: fixture.api_key},
+                 fixture.request,
+                 fixture.attempt,
+                 options
+               )
+
       descriptor = %{
         semantic_turn_key: <<1::256>>,
         replay_claim_digest: <<2::256>>,
@@ -282,6 +299,8 @@ defmodule CodexPooler.Gateway.Transports.WebsocketVisibilityTest do
 
     assert log == ""
     assert Repo.reload!(fixture.request).status == "succeeded"
+    assert Repo.reload!(fixture.attempt).status == "succeeded"
+    assert Repo.reload!(fixture.turn).status == "succeeded"
 
     assert Repo.aggregate(
              from(e in LedgerEntry,

@@ -5,7 +5,7 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Interruption do
 
   alias CodexPooler.Access.APIKey
   alias CodexPooler.Accounting
-  alias CodexPooler.Accounting.{Attempt, Request, RequestReplayEntitlement}
+  alias CodexPooler.Accounting.{Attempt, ClientRetry, Request, RequestReplayEntitlement}
   alias CodexPooler.Accounting.RequestLogFacts
   alias CodexPooler.Gateway.Payloads.RequestOptions
   alias CodexPooler.Gateway.Persistence.{CodexSession, CodexTurn}
@@ -31,6 +31,21 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Interruption do
   @turn_succeeded TurnStatus.succeeded_status()
   @turn_failed TurnStatus.failed_status()
   @turn_interrupted TurnStatus.interrupted_status()
+
+  @spec owner_finalization_pending?(OwnerCleanup.t()) :: boolean()
+  def owner_finalization_pending?(%OwnerCleanup{} = witness) do
+    Repo.exists?(
+      from request in Request,
+        left_join: turn in CodexTurn,
+        on: turn.request_id == request.id and turn.codex_session_id == ^witness.session_id,
+        left_join: attempt in Attempt,
+        on: attempt.id == ^witness.attempt_id and attempt.request_id == request.id,
+        where:
+          request.id == ^witness.request_id and
+            (turn.status == ^@turn_in_progress or request.status in ["accepted", "in_progress"] or
+               attempt.status in ["queued", "in_progress"])
+    )
+  end
 
   @spec interrupt_direct_request(
           CodexPooler.Gateway.Websocket.DirectCleanup.receipt(),
@@ -138,7 +153,7 @@ defmodule CodexPooler.Gateway.Runtime.Finalization.Interruption do
         request
         |> Ecto.Changeset.change(
           status: "failed",
-          completed_at: now(),
+          completed_at: ClientRetry.completion_timestamp(request, now()),
           response_status_code: 499,
           last_error_code: reason,
           usage_status: "usage_unknown"

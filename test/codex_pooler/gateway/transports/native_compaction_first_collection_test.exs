@@ -7,6 +7,7 @@ defmodule CodexPooler.Gateway.NativeCompactionFirstCollectionTest do
   alias CodexPooler.FakeUpstream
   alias CodexPooler.Gateway.Payloads.NativeCodexTurnMetadata
   alias CodexPooler.Gateway.Persistence.BridgeOwnerLease
+  alias CodexPooler.Gateway.Transports.OwnerAccountingSeed
   alias CodexPooler.Gateway.Transports.Streaming.StreamProtocol
   alias CodexPooler.Gateway.Transports.Websocket.NativeCompactionAdmission, as: Admission
   alias CodexPooler.Gateway.Transports.Websocket.UpstreamWebsocketSession, as: Owner
@@ -201,7 +202,10 @@ defmodule CodexPooler.Gateway.NativeCompactionFirstCollectionTest do
 
   defp forwarded_ordinary(owner, downstream, upstream) do
     request = %{collection_request(upstream) | websocket_delivery_mode: :relay}
-    assert {:ok, result} = Forwarded.submit_request(owner, downstream, request)
+
+    assert {:ok, result} =
+             OwnerAccountingSeed.submit(owner, downstream, request)
+
     result.ordinary_success_result
   end
 
@@ -341,7 +345,11 @@ defmodule CodexPooler.Gateway.NativeCompactionFirstCollectionTest do
           Forwarded.attach_downstream(owner, %{pid: self(), correlation_id: Ecto.UUID.generate()})
 
         assert {:ok, result} =
-                 Forwarded.submit_request(owner, downstream, collection_request(upstream))
+                 OwnerAccountingSeed.submit(
+                   owner,
+                   downstream,
+                   collection_request(upstream)
+                 )
 
         assert %Admission.FirstCompactResult{} = receipt = result.first_compact_result
         assert receipt.owner == owner

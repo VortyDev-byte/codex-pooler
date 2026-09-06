@@ -15,8 +15,8 @@ defmodule CodexPoolerWeb.Runtime.AnchoredOwnerDrainSupport do
 
   @budget 15_000
 
-  @spec fixture() :: {map(), FakeUpstream.t(), map(), reference()}
-  def fixture do
+  @spec fixture(keyword()) :: {map(), FakeUpstream.t(), map(), reference()}
+  def fixture(opts \\ []) do
     cache = InstanceSettings.snapshot_cache_for_test()
     on_exit(fn -> InstanceSettings.restore_cache_for_test(cache) end)
     previous = Application.get_env(:codex_pooler, :websocket_owner_forwarding_enabled)
@@ -36,18 +36,18 @@ defmodule CodexPoolerWeb.Runtime.AnchoredOwnerDrainSupport do
     upstream =
       start_upstream(
         {:sequence,
-         [
-           completed_tool_response(),
-           FakeUpstream.delayed_terminal_sse_stream(
-             [%{"type" => "response.output_text.delta", "delta" => "synthetic"}],
-             %{
-               "type" => "response.completed",
-               "response" => %{"id" => "resp_synthetic_continuation", "status" => "completed"}
-             },
-             notify: self(),
-             release_ref: release_ref
-           )
-         ]}
+         Keyword.get(opts, :completed_responses, [completed_tool_response()]) ++
+           [
+             FakeUpstream.delayed_terminal_sse_stream(
+               [%{"type" => "response.output_text.delta", "delta" => "synthetic"}],
+               %{
+                 "type" => "response.completed",
+                 "response" => %{"id" => "resp_synthetic_continuation", "status" => "completed"}
+               },
+               notify: self(),
+               release_ref: release_ref
+             )
+           ]}
       )
 
     setup = gateway_setup(upstream)

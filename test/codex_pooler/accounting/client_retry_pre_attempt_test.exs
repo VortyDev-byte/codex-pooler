@@ -16,6 +16,62 @@ defmodule CodexPooler.Accounting.ClientRetryPreAttemptTest do
   alias CodexPooler.Gateway.Persistence.{BridgeOwnerLease, CodexSession, CodexTurn}
   alias CodexPooler.Repo
 
+  test "native retry completion uses database time despite a future application clock" do
+    before = database_now()
+    fixture = predecessor_fixture(%{now: DateTime.add(before, 60, :second)})
+    assert DateTime.compare(fixture.request.completed_at, before) in [:eq, :gt]
+    assert DateTime.compare(fixture.request.completed_at, database_now()) in [:eq, :lt]
+    assert {:ok, %ClientRetry.SuccessorClaim{}} = claim(fixture)
+  end
+
+  test "attempt finalization uses database time only for native retry witnesses" do
+    for native? <- [true, false], attempted? <- [true, false] do
+      setup = accounting_setup(%{price_version: "clock-#{System.unique_integer([:positive])}"})
+      before = database_now()
+      future = DateTime.add(before, 60, :second)
+
+      witness =
+        if native?,
+          do:
+            ClientRetry.original_witness!(
+              :crypto.strong_rand_bytes(32),
+              setup.api_key.runtime_revocation_epoch
+            )
+
+      {:ok, %{request: claimed}} =
+        Accounting.claim_websocket_turn(setup.auth, setup.model, %{
+          endpoint: "/backend-api/codex/responses",
+          correlation_id: Ecto.UUID.generate(),
+          native_client_retry_witness: witness
+        })
+
+      {:ok, %{request: reserved}} =
+        Accounting.reserve(setup.auth, setup.model, %{"model" => setup.model.exposed_model_id}, %{
+          transport: "websocket",
+          endpoint: claimed.endpoint,
+          correlation_id: claimed.correlation_id,
+          turn_claim: claimed
+        })
+
+      {:ok, result} =
+        if attempted? do
+          {:ok, attempt} = Accounting.create_attempt(reserved, setup.assignment)
+          Accounting.finalize_failure(reserved, attempt, %{now: future})
+        else
+          Accounting.finalize_reservation_failure(reserved, %{now: future})
+        end
+
+      if attempted?, do: assert(result.attempt.completed_at == result.request.completed_at)
+
+      if native? do
+        assert DateTime.compare(result.request.completed_at, before) in [:eq, :gt]
+        assert DateTime.compare(result.request.completed_at, database_now()) in [:eq, :lt]
+      else
+        assert result.request.completed_at == future
+      end
+    end
+  end
+
   test "a drained accepted claim with no turn or ledger receives one fresh successor" do
     fixture = claimed_predecessor_fixture()
     assert {:ok, %ClientRetry.SuccessorClaim{} = successor} = claim(fixture)
@@ -193,7 +249,7 @@ defmodule CodexPooler.Accounting.ClientRetryPreAttemptTest do
     }
   end
 
-  defp predecessor_fixture do
+  defp predecessor_fixture(completion_attrs \\ %{}) do
     setup =
       accounting_setup(%{price_version: "pre-attempt-#{System.unique_integer([:positive])}"})
 
@@ -219,11 +275,17 @@ defmodule CodexPooler.Accounting.ClientRetryPreAttemptTest do
       })
 
     {:ok, %{request: request}} =
-      Accounting.finalize_reservation_failure(reserved, %{
-        last_error_code: "owner_drained",
-        usage_status: "usage_unknown",
-        response_status_code: 499
-      })
+      Accounting.finalize_reservation_failure(
+        reserved,
+        Map.merge(
+          %{
+            last_error_code: "owner_drained",
+            usage_status: "usage_unknown",
+            response_status_code: 499
+          },
+          completion_attrs
+        )
+      )
 
     request =
       Repo.update!(
@@ -349,5 +411,10 @@ defmodule CodexPooler.Accounting.ClientRetryPreAttemptTest do
 
   defp update_request(fixture, attrs) do
     %{fixture | request: Repo.update!(Ecto.Changeset.change(fixture.request, attrs))}
+  end
+
+  defp database_now do
+    %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
+    now
   end
 end

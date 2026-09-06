@@ -1178,7 +1178,9 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
         owner_instance_id: state.owner_instance_id,
         upstream_alive?: Process.alive?(state.upstream_pid),
         draining?: state.draining?,
-        active_turn?: DownstreamState.active_turn?(state)
+        active_turn?:
+          DownstreamState.active_turn?(state) or
+            (state.draining? and Persistence.pending_finalization?(state))
       }}, state}
   end
 
@@ -2667,6 +2669,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession do
 
   defp finish_active_turn(state, result) do
     downstream = DownstreamState.active_turn_downstream(state)
+    state = %{state | termination_cleanup_witness: OwnerCleanup.from_owner_state(state)}
     clear_active_turn_resources(state.active_turn)
     state = clear_terminal_replay_state(state, result)
 

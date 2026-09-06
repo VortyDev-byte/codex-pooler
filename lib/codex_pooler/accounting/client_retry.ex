@@ -159,6 +159,11 @@ defmodule CodexPooler.Accounting.ClientRetry do
 
   def original_witness_eligible?(%Request{}), do: false
 
+  @spec completion_timestamp(Request.t(), DateTime.t()) :: DateTime.t()
+  def completion_timestamp(%Request{} = request, fallback) do
+    if original_witness_eligible?(request), do: db_now(), else: fallback
+  end
+
   @spec reserved_successor_claim?(term()) :: boolean()
   def reserved_successor_claim?(value) when is_binary(value),
     do: String.starts_with?(value, @successor_prefix)

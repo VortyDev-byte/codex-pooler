@@ -2,8 +2,8 @@ defmodule CodexPooler.Gateway.Transports.OrdinarySuccessTestSeed do
   @moduledoc false
   import ExUnit.Assertions
   alias CodexPooler.FakeUpstream
+  alias CodexPooler.Gateway.Transports.OwnerAccountingSeed
   alias CodexPooler.Gateway.Transports.Websocket.UpstreamWebsocketSession, as: Upstream
-  alias CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession, as: Owner
 
   def boundary(original) do
     {:ok, server} =
@@ -71,7 +71,9 @@ defmodule CodexPooler.Gateway.Transports.OrdinarySuccessTestSeed do
       message_mapper: & &1
     }
 
-    assert {:ok, result} = Owner.submit_request(owner, downstream, request)
+    assert {:ok, result} =
+             OwnerAccountingSeed.submit(owner, downstream, request)
+
     receipt = result.ordinary_success_result
 
     binding = %{

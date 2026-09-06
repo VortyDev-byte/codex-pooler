@@ -199,7 +199,7 @@ defmodule CodexPooler.Accounting.ClientRetryPostgresTest do
 
   defp committed_fixture(predecessor_kind \\ :attempted) do
     setup = accounting_setup(%{price_version: unique_price_version()})
-    now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+    %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
     digest = :crypto.strong_rand_bytes(32)
     semantic_digest = :crypto.strong_rand_bytes(32)
     witness = ClientRetry.original_witness!(digest, setup.api_key.runtime_revocation_epoch)

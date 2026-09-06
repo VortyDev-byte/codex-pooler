@@ -135,7 +135,7 @@ defmodule CodexPooler.Accounting.ClientRetryTest do
   describe "lineage persistence" do
     test "atomically claims one deterministic successor lifecycle for an eligible failed turn" do
       setup = accounting_setup()
-      now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+      %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
       digest = :crypto.strong_rand_bytes(32)
       semantic_digest = :crypto.strong_rand_bytes(32)
 
@@ -177,7 +177,7 @@ defmodule CodexPooler.Accounting.ClientRetryTest do
 
     test "storage failure rolls back the successor request turn reservation and link" do
       setup = accounting_setup()
-      now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+      %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
       digest = :crypto.strong_rand_bytes(32)
       semantic_digest = :crypto.strong_rand_bytes(32)
 
@@ -205,7 +205,7 @@ defmodule CodexPooler.Accounting.ClientRetryTest do
 
     test "PostgreSQL wall clock sampled after locks rejects a claim that expires while held" do
       setup = accounting_setup()
-      now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+      %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
       digest = :crypto.strong_rand_bytes(32)
       semantic_digest = :crypto.strong_rand_bytes(32)
       {session, predecessor, attempt} = eligible_predecessor!(setup, digest, semantic_digest, now)
@@ -234,7 +234,7 @@ defmodule CodexPooler.Accounting.ClientRetryTest do
 
     test "rejects a healthy leased owner without an owner-idle proof" do
       setup = accounting_setup()
-      now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+      %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
       digest = :crypto.strong_rand_bytes(32)
       semantic_digest = :crypto.strong_rand_bytes(32)
 
@@ -298,7 +298,7 @@ defmodule CodexPooler.Accounting.ClientRetryTest do
     test "requires exact Mint.TransportError close identity for receive-phase closed signals" do
       for mutation <- [:wrong_source, :wrong_exception, :wrong_reason] do
         setup = accounting_setup(%{price_version: unique_price_version(to_string(mutation))})
-        now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+        %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
         digest = :crypto.strong_rand_bytes(32)
         semantic_digest = :crypto.strong_rand_bytes(32)
 
@@ -341,7 +341,7 @@ defmodule CodexPooler.Accounting.ClientRetryTest do
       end
 
       setup = accounting_setup(%{price_version: unique_price_version("mint-closed-positive")})
-      now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+      %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
       digest = :crypto.strong_rand_bytes(32)
       semantic_digest = :crypto.strong_rand_bytes(32)
 
@@ -386,7 +386,7 @@ defmodule CodexPooler.Accounting.ClientRetryTest do
 
       for {mutation, expected_reason} <- expected_reasons do
         setup = accounting_setup(%{price_version: unique_price_version(to_string(mutation))})
-        now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+        %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
         digest = :crypto.strong_rand_bytes(32)
         semantic_digest = :crypto.strong_rand_bytes(32)
 
@@ -490,7 +490,7 @@ defmodule CodexPooler.Accounting.ClientRetryTest do
       setup = accounting_setup()
       digest = :crypto.strong_rand_bytes(32)
       witness = ClientRetry.original_witness!(digest, setup.api_key.runtime_revocation_epoch)
-      now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+      %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
 
       predecessor = claim_request!(setup, witness)
       successor = claim_request!(setup, nil)
@@ -688,7 +688,7 @@ defmodule CodexPooler.Accounting.ClientRetryTest do
   end
 
   defp linked_pair!(setup) do
-    now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+    %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()", [])
 
     witness =
       ClientRetry.original_witness!(

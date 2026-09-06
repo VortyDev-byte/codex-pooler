@@ -367,7 +367,6 @@ defmodule CodexPooler.Accounting.RequestLifecycle do
 
   @spec finalize_reserved_request_failure(Request.t(), map()) :: request_result()
   def finalize_reserved_request_failure(%Request{} = request, attrs \\ %{}) do
-    timestamp = now(attrs)
     request_status = Map.get(attrs, :request_status, Map.get(attrs, :status, "failed"))
     last_error_code = blank_to_nil(Map.get(attrs, :last_error_code))
     usage_status = Map.get(attrs, :usage_status, @usage_not_applicable)
@@ -379,6 +378,8 @@ defmodule CodexPooler.Accounting.RequestLifecycle do
             where: locked_request.id == ^request.id,
             lock: "FOR UPDATE"
         )
+
+      timestamp = ClientRetry.completion_timestamp(request, now(attrs))
 
       request =
         request
@@ -458,7 +459,11 @@ defmodule CodexPooler.Accounting.RequestLifecycle do
       {request, attempt, reservation, existing_settlement, replay_entitlement} =
         lock_finalization_rows(request, attempt)
 
-      timestamp = if replay_entitlement, do: replay_db_now(), else: now(attrs)
+      timestamp =
+        if replay_entitlement,
+          do: replay_db_now(),
+          else: ClientRetry.completion_timestamp(request, now(attrs))
+
       finalization = %{finalization | timestamp: timestamp}
 
       replay_entitlement =

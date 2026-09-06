@@ -7,6 +7,17 @@ defmodule CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession.Persist
   alias CodexPooler.Gateway.Transports.Websocket.WebsocketOwnerSession.Logger, as: OwnerLogger
   alias CodexPooler.Gateway.Websocket.OwnerCleanup
 
+  @spec pending_finalization?(map()) :: boolean()
+  def pending_finalization?(state) do
+    case OwnerCleanup.from_owner_state(state) do
+      %OwnerCleanup{} = witness ->
+        uuid?(state.codex_session_id) and Interruption.owner_finalization_pending?(witness)
+
+      nil ->
+        false
+    end
+  end
+
   @spec renew_owner_lease(map()) :: {:ok, map()} | {:error, term()}
   def renew_owner_lease(state) do
     opts = RequestOptions.for_websocket(%{})

@@ -606,9 +606,14 @@ defmodule CodexPooler.Gateway.Runtime.AccountingReservationTest do
       }
     }
 
+    %{rows: [[before]]} = Repo.query!("SELECT clock_timestamp()", [])
     assert :ok = Interruption.interrupt_direct_request(receipt, "owner_drained")
+    %{rows: [[after_time]]} = Repo.query!("SELECT clock_timestamp()", [])
+    completed = Repo.reload!(request)
+    assert DateTime.compare(completed.completed_at, before) in [:eq, :gt]
+    assert DateTime.compare(completed.completed_at, after_time) in [:eq, :lt]
     Repo.update!(Ecto.Changeset.change(Repo.reload!(session), original_owner))
-    Repo.reload!(request)
+    completed
   end
 
   defp reserve_predecessor(_auth, _model, _session, request, _prepared, :claim), do: request
