@@ -79,6 +79,24 @@ defmodule CodexPooler.MixTasks.ReliabilityQaLifecycleTest do
     assert File.exists?(fixture.compose_down_marker)
   end
 
+  test "provider-connected QA disables and verifies background workers before serving" do
+    fixture = wrapper_fixture!(23, 0)
+    {output, code} = run_wrapper(fixture, "QA_COMPLETE", [{"RELIABILITY_QA_DISABLE_OBAN", "1"}])
+    assert code == 23, output
+    assert output =~ "QA_READY"
+    command = File.read!(Path.join(fixture.runtime_root, "launch-command"))
+    assert command =~ "mix phx.server --no-compile --no-start"
+    preboot = File.read!(Path.join(fixture.runtime_root, "preboot.exs"))
+    assert preboot =~ "Keyword.drop([:cron, :lifeline, :pruner])"
+    assert preboot =~ "queues: false, plugins: false, stager: false"
+    assert preboot =~ "actual = Oban.config()"
+    assert preboot =~ "actual.queues == [] and actual.plugins == [] and actual.stager == false"
+    assert {:ok, _} = Code.string_to_quoted(preboot)
+    [configuration, startup] = String.split(preboot, "Application.ensure_all_started")
+    assert configuration =~ "Application.put_env(:codex_pooler, Oban, config)"
+    assert startup =~ "actual = Oban.config()"
+  end
+
   test "source manifest preserves real file permissions, size, hash and symlink targets" do
     fixture = wrapper_fixture!(23, 0)
     source = Path.join(fixture.root, "lib/fixture.ex")
@@ -223,6 +241,8 @@ defmodule CodexPooler.MixTasks.ReliabilityQaLifecycleTest do
       case "$1" in
         start)
           mkdir -p "$DEV_SERVER_STATE_DIR"
+          printf '%s' "$DEV_SERVER_COMMAND" > "$(dirname "$DEV_SERVER_STATE_DIR")/launch-command"
+          printf 'QA_OBAN_DISABLED queues=0 plugins=0 stager=false\n' > "$DEV_SERVER_LOG"
           printf 'fixturefixturefixturefix\n' > "$DEV_SERVER_STATE_DIR/active"
           printf 'version\t1\nstate\trunning\npid\t123\nstart_signature\tfixture-start\ncommand\tmix phx.server\ncwd\t%s\nport\t%s\n' "$DEV_SERVER_CWD" "$DEV_SERVER_PORT" > "$DEV_SERVER_STATE_DIR/fixturefixturefixturefix.receipt"
           printf secret > "$(dirname "$DEV_SERVER_STATE_DIR")/secret.fixture"

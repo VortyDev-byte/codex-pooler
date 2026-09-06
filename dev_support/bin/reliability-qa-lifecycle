@@ -14,6 +14,8 @@ The complete prepare/start/QA/cleanup lifecycle is capped at 20 minutes.
 SMOKE_BASE_URL may supply the explicit loopback listener port; --port overrides it.
 RELIABILITY_QA_MIX_BUILD_PATH must name an existing absolute, non-symlinked,
 task-owned Mix build cache.
+RELIABILITY_QA_DISABLE_OBAN=1 disables all background job producers before boot
+and verifies the running Oban configuration for provider-connected QA.
 EOF
 }
 
@@ -71,6 +73,8 @@ postgres_password="relqa-${run_id}"
 postgres_port="${RELIABILITY_QA_POSTGRES_PORT:-}"
 mix_build_path="${RELIABILITY_QA_MIX_BUILD_PATH:-}"
 timeout_seconds="${RELIABILITY_QA_TIMEOUT_SECONDS:-1200}"
+disable_oban="${RELIABILITY_QA_DISABLE_OBAN:-0}"
+[[ "$disable_oban" = 0 || "$disable_oban" = 1 ]] || fail "invalid Oban disable option"
 
 [[ "$mix_build_path" = /* ]] && [ -d "$mix_build_path" ] && [ ! -L "$mix_build_path" ] ||
   fail "RELIABILITY_QA_MIX_BUILD_PATH must be an existing absolute owned directory"
@@ -224,12 +228,39 @@ make_args=(--no-print-directory "PORT=$port" "POSTGRES_PORT=$postgres_port" \
 (cd "$root" && mise x -- make "${make_args[@]}" dev-prepare > "$prepare_log" 2>&1)
 (cd "$root" && mise x -- mix dev.seed full > "$seed_log" 2>&1)
 
+server_command="PORT=$port mix phx.server"
+if [ "$disable_oban" = 1 ]; then
+  preboot="$runtime_root/preboot.exs"
+  cat > "$preboot" <<'ELIXIR'
+config =
+  Application.fetch_env!(:codex_pooler, Oban)
+  |> Keyword.drop([:cron, :lifeline, :pruner])
+  |> Keyword.merge(queues: false, plugins: false, stager: false)
+
+Application.put_env(:codex_pooler, Oban, config)
+endpoint = Application.fetch_env!(:codex_pooler, CodexPoolerWeb.Endpoint)
+Application.put_env(:codex_pooler, CodexPoolerWeb.Endpoint, Keyword.put(endpoint, :server, true))
+{:ok, _} = Application.ensure_all_started(:codex_pooler)
+actual = Oban.config()
+unless actual.queues == [] and actual.plugins == [] and actual.stager == false,
+  do: raise("owned QA background workers remain enabled")
+IO.puts("QA_OBAN_DISABLED queues=0 plugins=0 stager=false")
+Process.sleep(:infinity)
+ELIXIR
+  chmod 600 "$preboot"
+  server_command="PORT=$port mix phx.server --no-compile --no-start '$preboot'"
+fi
+
 DEV_SERVER_PORT="$port" DEV_SERVER_STATE_DIR="$state_dir" DEV_SERVER_LOG="$log_path" \
   DEV_SERVER_LEGACY_PID="$runtime_root/dev-server.pid" DEV_SERVER_CWD="$root" \
-  DEV_SERVER_COMMAND="PORT=$port mix phx.server" DEV_SERVER_HEALTH_URL="$origin/healthz" \
+  DEV_SERVER_COMMAND="$server_command" DEV_SERVER_HEALTH_URL="$origin/healthz" \
   "$root/dev_support/bin/dev-server-lifecycle" start
 
 curl -fsS "$origin/healthz" >/dev/null
+if [ "$disable_oban" = 1 ]; then
+  rg -q '^QA_OBAN_DISABLED queues=0 plugins=0 stager=false$' "$log_path" ||
+    fail "running Oban configuration was not verified"
+fi
 source_manifest "$runtime_root/source-after-start.tsv"
 cmp -s "$runtime_root/source-before.tsv" "$runtime_root/source-after-start.tsv" ||
   fail "application source changed during build/start"
