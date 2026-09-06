@@ -13,7 +13,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.NativeCompactionFailureMatrix
         Scenarios.run!(row, Scenarios.context(context, row))
       end)
 
-    assert_required_observables(observed, row.expected)
+    assert_required_observables(observed, row)
     assert logs == ""
   end
 
@@ -28,7 +28,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.NativeCompactionFailureMatrix
       observed = Scenarios.run!(row, Scenarios.context(context, row))
 
       assert %Observed{} = observed
-      assert_required_observables(observed, row.expected)
+      assert_required_observables(observed, row)
     end)
   end
 
@@ -88,10 +88,11 @@ defmodule CodexPooler.Gateway.Transports.Websocket.NativeCompactionFailureMatrix
     end
   end
 
-  defp assert_required_observables(%Observed{} = observed, %Observed{} = expected) do
-    assert observed.admission_phase == expected.admission_phase
-    assert observed.upstream_send_count == expected.upstream_send_count
-    assert observed.accounting_lifecycle == expected.accounting_lifecycle
-    assert observed.owner_fate == expected.owner_fate
+  defp assert_required_observables(%Observed{} = observed, %Row{id: id, expected: expected}) do
+    context = "scenario=#{id} observed=#{inspect(observed)}"
+    assert observed.admission_phase == expected.admission_phase, context
+    assert observed.upstream_send_count == expected.upstream_send_count, context
+    assert observed.accounting_lifecycle == expected.accounting_lifecycle, context
+    assert observed.owner_fate == expected.owner_fate, context
   end
 end

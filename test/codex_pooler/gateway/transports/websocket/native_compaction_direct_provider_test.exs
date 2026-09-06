@@ -11,7 +11,7 @@ defmodule CodexPooler.Gateway.Transports.Websocket.NativeCompactionDirectProvide
     stale_token: {:cleared, 0, 1},
     reconnect_before_send: {:cleared, 0, 1},
     generation_replacement_before_send: {:cleared, 0, 1},
-    send_failure: {:cleared, 1, 1},
+    send_failure: {:cleared, 0, 1},
     terminal_failure: {:cleared, 1, 1},
     finalization_failure: {:cleared, 1, 1},
     compact_collection: {:collected_unconfirmed, 1, 1},
@@ -67,5 +67,20 @@ defmodule CodexPooler.Gateway.Transports.Websocket.NativeCompactionDirectProvide
              },
              owner_fate: :survived
            } = DirectSessionBoundary.run(:pre_commit_cancellation, context)
+  end
+
+  test "send failure reaches the real payload write after consuming admission" do
+    context = %Context{
+      test_pid: self(),
+      sandbox_owner: self(),
+      scenario_namespace: "direct-send-boundary-#{System.unique_integer([:positive])}"
+    }
+
+    observed = DirectSessionBoundary.run(:send_failure, context)
+
+    assert observed.metadata.failure_phase == "send_payload", inspect(observed)
+    assert observed.metadata.failure_source == "payload_send_error"
+    assert observed.upstream_send_count == 0
+    assert observed.accounting_lifecycle.settlements == 1
   end
 end

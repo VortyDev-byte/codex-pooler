@@ -197,7 +197,7 @@ defmodule CodexPooler.Gateway.Transports.NativeCompactionFailureScenarios do
         0,
         1
       ),
-      row(:send_failure, :direct_session_boundary, DirectSessionBoundary, :cleared, 1, 1),
+      row(:send_failure, :direct_session_boundary, DirectSessionBoundary, :cleared, 0, 1),
       row(:terminal_failure, :direct_session_boundary, DirectSessionBoundary, :cleared, 1, 1),
       row(:finalization_failure, :direct_session_boundary, DirectSessionBoundary, :cleared, 1, 1),
       row(

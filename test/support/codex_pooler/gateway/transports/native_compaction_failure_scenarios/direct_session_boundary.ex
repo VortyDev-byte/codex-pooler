@@ -192,14 +192,46 @@ defmodule CodexPooler.Gateway.Transports.NativeCompactionFailureScenarios.Direct
       binding = arm_direct_after_warmup!(session, upstream)
       capability = reserve_accounted!(session, :compact, binding)
       baseline = FakeUpstream.count(upstream)
-      :ok = FakeUpstream.close_websocket_connections(upstream)
-      _ = :sys.get_state(session)
+      socket = session |> :sys.get_state() |> Map.fetch!(:conn) |> Mint.HTTP.get_socket()
+      handler_id = {__MODULE__, :send_failure, make_ref()}
 
-      {:error, _failure} =
-        UpstreamWebsocketSession.request(session, request(upstream, capability, binding))
+      :ok =
+        :telemetry.attach(
+          handler_id,
+          [:codex_pooler, :gateway, :native_compaction, :authorization_transition],
+          &__MODULE__.close_consumed_socket/4,
+          {session, socket}
+        )
 
-      observe(session, upstream, baseline, zero_accounting(), %{boundary: :websocket_payload_send})
+      failure =
+        try do
+          compact_request = %{
+            request(upstream, capability, binding)
+            | websocket_delivery_mode: :collect_compaction
+          }
+
+          {:error, failure} = UpstreamWebsocketSession.request(session, compact_request)
+          failure
+        after
+          :telemetry.detach(handler_id)
+        end
+
+      observe(session, upstream, baseline, zero_accounting(), %{
+        boundary: :websocket_payload_send,
+        failure_phase: failure.transport_failure["phase"],
+        failure_source: failure.transport_failure["termination_source"]
+      })
     end)
+  end
+
+  @doc false
+  @spec close_consumed_socket([atom()], map(), map(), {pid(), port()}) :: :ok
+  def close_consumed_socket(_event, _measurements, metadata, {session, socket}) do
+    if self() == session and metadata.transition == :compact_consumed do
+      :ok = :gen_tcp.close(socket)
+    end
+
+    :ok
   end
 
   defp terminal_failure(context, _handle) do
