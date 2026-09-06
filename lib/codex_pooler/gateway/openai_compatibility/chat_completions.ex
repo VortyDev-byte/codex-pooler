@@ -628,9 +628,23 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
         }
         |> Enum.reject(fn {_key, value} -> is_nil(value) end)
         |> Map.new()
+        |> maybe_put_compute_units(usage)
 
       _usage ->
         nil
+    end
+  end
+
+  defp maybe_put_compute_units(projected, usage) do
+    case Map.fetch(usage, "compute_units") do
+      {:ok, nil} ->
+        Map.put(projected, "compute_units", nil)
+
+      {:ok, value} when is_integer(value) and value >= 0 ->
+        Map.put(projected, "compute_units", value)
+
+      _ ->
+        projected
     end
   end
 

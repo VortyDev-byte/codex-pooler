@@ -3,6 +3,49 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletionsTest do
 
   alias CodexPooler.Gateway.OpenAICompatibility.{Chat, ChatCompletions}
 
+  for value <- [:absent, nil, 0, 7, -1, 1.5, "7", true, false, %{}, []] do
+    @compute_units value
+    test "projects compute_units #{inspect(value)} in JSON and included stream usage" do
+      tokens = %{"input_tokens" => 2, "output_tokens" => 3}
+      expected = %{"prompt_tokens" => 2, "completion_tokens" => 3, "total_tokens" => 5}
+
+      usage =
+        if @compute_units == :absent,
+          do: tokens,
+          else: Map.put(tokens, "compute_units", @compute_units)
+
+      expected =
+        if @compute_units in [nil, 0, 7],
+          do: Map.put(expected, "compute_units", @compute_units),
+          else: expected
+
+      response = %{"status" => "completed", "usage" => usage}
+      payload = %{"model" => "gpt-example"}
+      assert ChatCompletions.normalize_response(response, payload)["usage"] == expected
+
+      terminal =
+        sse_event("response.completed", %{"response" => response})
+        |> IO.iodata_to_binary()
+
+      for include_usage? <- [true, false] do
+        state =
+          payload
+          |> Map.put("stream_options", %{"include_usage" => include_usage?})
+          |> ChatCompletions.stream_state()
+
+        {output, _state} = ChatCompletions.normalize_stream_data(terminal, state)
+        chunks = normalized_sse_payloads(output)
+        usage_chunks = Enum.filter(chunks, &Map.has_key?(&1, "usage"))
+
+        if include_usage? do
+          assert [%{"choices" => [], "usage" => ^expected}] = usage_chunks
+        else
+          assert usage_chunks == []
+        end
+      end
+    end
+  end
+
   test "flat custom declarations return raw input through function arguments" do
     payload = %{
       "model" => "gpt-example",
