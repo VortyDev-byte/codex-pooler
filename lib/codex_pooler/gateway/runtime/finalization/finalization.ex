@@ -105,11 +105,8 @@ defmodule CodexPooler.Gateway.Runtime.Finalization do
         native_compaction_result?(context) ->
           finalize_native_compaction_response(response, context, body, callbacks)
 
-        Metadata.json_content?(response) and not StreamProtocol.valid_json?(body) ->
-          finalize_invalid_json_response(response, context)
-
         true ->
-          finalize_valid_json_response(response, context, body, callbacks)
+          finalize_json_response(response, context, body, callbacks)
       end
     end
   end
@@ -718,7 +715,25 @@ defmodule CodexPooler.Gateway.Runtime.Finalization do
     end
   end
 
-  defp finalize_invalid_json_response(response, %SelectedCandidateContext{} = context) do
+  defp invalid_transcription_response?(
+         %SelectedCandidateContext{endpoint: "/backend-api/transcribe"},
+         body
+       ) do
+    case Jason.decode(body) do
+      {:ok, %{"text" => text} = decoded} when is_binary(text) -> not is_nil(decoded["error"])
+      _invalid -> true
+    end
+  end
+
+  defp invalid_transcription_response?(%SelectedCandidateContext{}, _body), do: false
+
+  defp finalize_invalid_json_response(
+         response,
+         %SelectedCandidateContext{} = context,
+         code \\ "invalid_upstream_response",
+         message \\ "upstream response was not valid json",
+         attrs \\ []
+       ) do
     %{reserved: reserved, attempt: attempt, request_options: request_options} = context
 
     latency = elapsed_ms(context.started)
@@ -729,9 +744,9 @@ defmodule CodexPooler.Gateway.Runtime.Finalization do
            SettlementAttrs.failure(
              context,
              502,
-             "invalid_upstream_response",
-             "upstream response was not valid json",
-             Metadata.response_metadata(response, "invalid_upstream_response", request_options),
+             code,
+             message,
+             Metadata.response_metadata(response, code, request_options),
              latency_ms: latency,
              before_finalize: fn ->
                SideEffects.observe_http_response(
@@ -741,12 +756,13 @@ defmodule CodexPooler.Gateway.Runtime.Finalization do
                )
              end
            )
+           |> Map.merge(Map.new(attrs))
          ) do
       {:stale_generation, finalized} ->
         {:ok, finalized}
 
       {:ok, _finalized} ->
-        {:error, error(502, "invalid_upstream_response", "upstream response was not valid json")}
+        {:error, error(502, code, message)}
 
       {:error, gateway_error} ->
         {:error, gateway_error}
@@ -807,9 +823,28 @@ defmodule CodexPooler.Gateway.Runtime.Finalization do
     end
   end
 
-  defp finalize_valid_json_response(response, context, body, callbacks) do
-    with :ok <- validate_public_compaction_response(response, context, body) do
-      finalize_successful_json_response(response, context, body, callbacks)
+  defp finalize_json_response(response, context, body, callbacks) do
+    cond do
+      invalid_transcription_response?(context, body) ->
+        finalize_invalid_json_response(
+          response,
+          context,
+          "invalid_transcription_response",
+          "upstream transcription response was invalid",
+          upstream_status_code: response.status,
+          before_finalize: fn ->
+            SideEffects.observe_http_response(context, response, body)
+            DispatchLifecycle.neutral_completion(context)
+          end
+        )
+
+      Metadata.json_content?(response) and not StreamProtocol.valid_json?(body) ->
+        finalize_invalid_json_response(response, context)
+
+      true ->
+        with :ok <- validate_public_compaction_response(response, context, body) do
+          finalize_successful_json_response(response, context, body, callbacks)
+        end
     end
   end
 

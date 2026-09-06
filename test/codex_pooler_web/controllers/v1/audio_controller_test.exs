@@ -5,7 +5,7 @@ defmodule CodexPoolerWeb.V1.AudioControllerTest do
   import ExUnit.CaptureLog
 
   import CodexPoolerWeb.Runtime.BackendCodexTestSupport,
-    only: [auth: 2, gateway_setup: 1, start_upstream: 1]
+    only: [auth: 2, gateway_setup: 1, half_open_circuit!: 2, start_upstream: 1]
 
   alias CodexPooler.Accounting
   alias CodexPooler.Accounting.{Attempt, LedgerEntry, Request}
@@ -228,6 +228,53 @@ defmodule CodexPoolerWeb.V1.AudioControllerTest do
     assert Repo.aggregate(Request, :count) == 0
   end
 
+  test "transcription host catalog labels remain accounting anchors without changing multipart model",
+       %{conn: conn} do
+    upstream = start_upstream(FakeUpstream.json_response(%{"text" => ""}))
+    setup = upstream |> gateway_setup() |> allow_models!([Gateway.backend_transcription_model()])
+
+    hidden_source =
+      setup.model.metadata["source_assignment_models"][setup.assignment.id]
+      |> Map.merge(%{"slug" => "aaa-hidden-review", "visibility" => "hide", "priority" => -100})
+
+    hidden =
+      CodexPooler.PoolerFixtures.model_fixture(setup.pool, %{
+        exposed_model_id: "aaa-hidden-review",
+        upstream_model_id: "provider-hidden-review",
+        metadata: %{
+          "source_assignment_ids" => [setup.assignment.id],
+          "source_assignment_models" => %{setup.assignment.id => hidden_source}
+        }
+      })
+
+    refute Repo.exists?(
+             from model in CodexPooler.Catalog.Model,
+               where:
+                 model.pool_id == ^setup.pool.id and model.exposed_model_id == "gpt-4o-transcribe"
+           )
+
+    response =
+      conn
+      |> auth(setup)
+      |> post("/v1/audio/transcriptions", %{
+        "model" => "gpt-transcribe",
+        "file" => upload_fixture("audio.wav", "audio/wav", "synthetic bytes")
+      })
+
+    assert %{"text" => ""} = json_response(response, 200)
+    assert [captured] = FakeUpstream.requests(upstream)
+    assert captured.path == "/backend-api/transcribe"
+    assert Map.new(captured.headers)["authorization"] == "Bearer upstream-token"
+    assert multipart_parts(captured) == [{:file, "file", "audio.wav"}]
+    assert [request] = Repo.all(from request in Request, where: request.pool_id == ^setup.pool.id)
+    assert request.model_id == hidden.id
+    assert request.requested_model == Gateway.backend_transcription_model()
+    assert request.request_metadata["effective_model"] == Gateway.backend_transcription_model()
+    assert [attempt] = Repo.all(from attempt in Attempt, where: attempt.request_id == ^request.id)
+    assert attempt.pool_upstream_assignment_id == setup.assignment.id
+    assert attempt.model_id == hidden.id
+  end
+
   test "POST /v1/audio/transcriptions rejects malformed decoded lists without effects", %{
     conn: conn
   } do
@@ -262,6 +309,132 @@ defmodule CodexPoolerWeb.V1.AudioControllerTest do
       assert Repo.aggregate(Attempt, :count) == 0
       assert Repo.aggregate(LedgerEntry, :count) == 0
     end
+  end
+
+  for endpoint <- ["/v1/audio/transcriptions", "/backend-api/transcribe"],
+      malformed <- [
+        nil,
+        [],
+        %{},
+        %{"text" => 42},
+        %{"error" => %{"code" => "fixture"}},
+        %{"text" => "", "error" => %{}}
+      ] do
+    @endpoint_path endpoint
+    @malformed malformed
+    test "#{endpoint} rejects malformed successful body #{inspect(malformed)} before settlement",
+         %{conn: conn} do
+      upstream = start_upstream(FakeUpstream.json_response(@malformed))
+      setup = upstream |> gateway_setup() |> use_transcription_model!()
+
+      response =
+        conn
+        |> auth(setup)
+        |> post(@endpoint_path, %{
+          "model" => "gpt-transcribe",
+          "file" => upload_fixture("audio.wav", "audio/wav", "synthetic bytes")
+        })
+
+      assert %{"error" => %{}} = json_response(response, 502)
+      assert FakeUpstream.count(upstream) == 1
+      assert [request] = Repo.all(from r in Request, where: r.pool_id == ^setup.pool.id)
+      assert request.status == "failed"
+      assert request.last_error_code == "invalid_transcription_response"
+      assert [attempt] = Repo.all(from a in Attempt, where: a.request_id == ^request.id)
+      assert attempt.status == "failed"
+      assert attempt.upstream_status_code == 200
+      assert request.response_status_code == 502
+      assert request.retry_count == 0
+
+      assert [settlement] =
+               Repo.all(
+                 from entry in LedgerEntry,
+                   where: entry.request_id == ^request.id and entry.entry_kind == "settlement"
+               )
+
+      assert settlement.amount_status == "recorded"
+      assert Repo.all(CodexPooler.Gateway.Persistence.BridgeDemotion) == []
+      assert Repo.all(CodexPooler.Gateway.Persistence.RoutingCircuitState) == []
+    end
+  end
+
+  test "transcription permits an empty text result for silence", %{conn: conn} do
+    upstream = start_upstream(FakeUpstream.json_response(%{"text" => ""}))
+    setup = upstream |> gateway_setup() |> use_transcription_model!()
+
+    response =
+      conn
+      |> auth(setup)
+      |> post("/v1/audio/transcriptions", %{
+        "model" => "gpt-transcribe",
+        "file" => upload_fixture("audio.wav", "audio/wav", "synthetic bytes")
+      })
+
+    assert %{"text" => ""} = json_response(response, 200)
+    assert [request] = Repo.all(from r in Request, where: r.pool_id == ^setup.pool.id)
+    assert request.status == "succeeded"
+  end
+
+  test "malformed transcription releases an existing half-open probe without changing health", %{
+    conn: conn
+  } do
+    upstream = start_upstream(FakeUpstream.json_response(%{}))
+    setup = upstream |> gateway_setup() |> use_transcription_model!()
+
+    state =
+      half_open_circuit!(setup, setup.assignment)
+      |> Ecto.Changeset.change(route_class: "audio_transcription")
+      |> Repo.update!()
+
+    for _request <- 1..2 do
+      response =
+        conn
+        |> recycle()
+        |> auth(setup)
+        |> post("/v1/audio/transcriptions", %{
+          "model" => "gpt-transcribe",
+          "file" => upload_fixture("audio.wav", "audio/wav", "synthetic bytes")
+        })
+
+      assert response.status == 502
+      current = Repo.reload!(state)
+      assert current.metadata["probe_in_flight_count"] == 0
+      assert {current.status, current.failure_count, current.success_count} == {"half_open", 1, 0}
+    end
+
+    assert FakeUpstream.count(upstream) == 2
+  end
+
+  test "transcription rejects a non-JSON successful body without echoing or persisting it", %{
+    conn: conn
+  } do
+    sentinel = "synthetic unexpected upstream body"
+
+    upstream =
+      start_upstream(
+        FakeUpstream.raw_response(sentinel, headers: [{"content-type", "text/plain"}])
+      )
+
+    setup = gateway_setup(upstream)
+
+    response =
+      conn
+      |> auth(setup)
+      |> post("/v1/audio/transcriptions", %{
+        "model" => "gpt-transcribe",
+        "file" => upload_fixture("audio.wav", "audio/wav", "synthetic bytes")
+      })
+
+    assert %{"error" => %{"code" => "invalid_transcription_response"}} =
+             json_response(response, 502)
+
+    refute response.resp_body =~ sentinel
+    assert [request] = Repo.all(from request in Request, where: request.pool_id == ^setup.pool.id)
+    assert request.status == "failed"
+    assert [attempt] = Repo.all(from attempt in Attempt, where: attempt.request_id == ^request.id)
+
+    refute inspect({request.request_metadata, attempt.response_metadata, attempt.error_message}) =~
+             sentinel
   end
 
   defp use_transcription_model!(setup) do
