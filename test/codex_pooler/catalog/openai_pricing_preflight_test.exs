@@ -1,6 +1,7 @@
 defmodule CodexPooler.Catalog.OpenAIPricingPreflightTest do
   use ExUnit.Case, async: true
 
+  alias CodexPooler.Catalog.OpenAIPricingFormat
   alias CodexPooler.Catalog.OpenAIPricingPreflight
 
   @fixture Path.expand("../../fixtures/pricing/openai/2026-07-28.json", __DIR__)
@@ -398,6 +399,69 @@ defmodule CodexPooler.Catalog.OpenAIPricingPreflightTest do
 
     assert %{compatible?: false, errors: [%{code: :file_read_failed, path: ^path}]} =
              OpenAIPricingPreflight.validate_file(path)
+  end
+
+  test "malformed root and model values return structured errors without raising" do
+    payload = valid_payload()
+
+    for {key, values} <- [
+          {"generated_at", [nil, 42, "bad-date"]},
+          {"source", [nil, 42, " "]},
+          {"models_count", [nil, -1, "1"]},
+          {"tools_count", [nil, -1, "1"]}
+        ],
+        value <- values do
+      result = OpenAIPricingPreflight.validate_payload(Map.put(payload, key, value))
+      refute result.compatible?
+      assert Enum.any?(result.errors, &(&1.path == key))
+    end
+
+    for {key, values} <- [
+          {"model", [nil, 42, " ", "different-model"]},
+          {"category", [nil, 42, " "]},
+          {"timestamp", [nil, 42, "bad-date"]},
+          {"prices", [%{"standard" => []}, %{"standard" => %{}}, %{42 => %{}}]}
+        ],
+        value <- values do
+      result =
+        OpenAIPricingPreflight.validate_payload(
+          put_in(payload, ["models", "future-model", key], value)
+        )
+
+      refute result.compatible?
+      assert result.errors != []
+    end
+  end
+
+  test "non-object roots and nested duplicate keys are rejected" do
+    for root <- [nil, [], 42, "value"] do
+      refute OpenAIPricingPreflight.validate_payload(root).compatible?
+    end
+
+    for raw <- [~s([{"key":1,"key":2}]), ~s({"nested":[{"key":1,"key":2}]})] do
+      assert {:error, :invalid_json} = OpenAIPricingFormat.decode(raw)
+    end
+
+    assert %{compatible?: false, errors: [%{code: :invalid_path}]} =
+             OpenAIPricingPreflight.validate_file(nil)
+  end
+
+  test "identical fast and priority aliases produce one canonical price row" do
+    payload = valid_payload()
+    tier = get_in(payload, ["models", "future-model", "prices", "standard"])
+
+    payload =
+      put_in(payload, ["models", "future-model", "prices"], %{"fast" => tier, "priority" => tier})
+
+    result = OpenAIPricingFormat.classify(payload)
+    assert result.compatible?
+    assert [row] = result.rows
+    assert row.service_tier == "priority"
+    assert row.price_bucket == "default"
+    assert Decimal.equal?(row.input, 1)
+    assert result.summary.importable_rows == 1
+    assert result.summary.priced_rows == 1
+    assert result.coverage.imported_price_buckets["default"] == 1
   end
 
   defp valid_payload do

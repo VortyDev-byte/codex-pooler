@@ -90,6 +90,17 @@ defmodule CodexPooler.Catalog.OpenAIPricingImporterTest do
     refute rendered_error =~ "secret"
   end
 
+  test "invalid import locations cannot insert pricing rows" do
+    before_count = Repo.aggregate(PricingSnapshot, :count)
+
+    for value <- [nil, 42, [], %{}] do
+      assert {:error, %{code: :invalid_path}} = OpenAIPricingImporter.import_file(value)
+      assert {:error, %{code: :invalid_url}} = OpenAIPricingImporter.import_url(value)
+    end
+
+    assert Repo.aggregate(PricingSnapshot, :count) == before_count
+  end
+
   test "imports revision 2 rows from the immutable fixture idempotently" do
     assert {:ok, first} = OpenAIPricingImporter.import_file(@fixture)
     assert first.price_version == "2026-07-28T17:25:03.915713Z:importer-format-2"
