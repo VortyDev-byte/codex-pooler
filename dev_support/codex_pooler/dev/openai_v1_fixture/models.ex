@@ -13,6 +13,7 @@ defmodule CodexPooler.Dev.OpenAIV1Fixture.Models do
   @type provisioned :: %{
           required(:text) => Model.t(),
           required(:alternate_text) => Model.t(),
+          required(:review_decoy) => Model.t(),
           required(:audio) => Model.t(),
           required(:image) => Model.t()
         }
@@ -21,6 +22,7 @@ defmodule CodexPooler.Dev.OpenAIV1Fixture.Models do
   def provision!(pool, assignment, identity) do
     models = %{
       text: upsert!(pool, assignment, text_attributes(assignment)),
+      review_decoy: upsert!(pool, assignment, review_attributes(assignment)),
       alternate_text:
         upsert!(
           pool,
@@ -98,6 +100,27 @@ defmodule CodexPooler.Dev.OpenAIV1Fixture.Models do
     )
   end
 
+  defp review_attributes(assignment) do
+    attributes =
+      model_attributes(
+        "fixture-review-host",
+        "Fixture Review Host",
+        true,
+        true,
+        true,
+        true,
+        assignment,
+        ["text", "image"]
+      )
+
+    metadata =
+      Map.merge(attributes.metadata["upstream_model"], %{"visibility" => "hide", "priority" => 0})
+
+    attributes
+    |> put_in([:metadata, "upstream_model"], metadata)
+    |> put_in([:metadata, "source_assignment_models", assignment.id], metadata)
+  end
+
   defp image_attributes(assignment) do
     model_attributes(
       "gpt-image-1",
@@ -132,6 +155,7 @@ defmodule CodexPooler.Dev.OpenAIV1Fixture.Models do
       metadata:
         %{
           "manual_smoke_provisioned" => true,
+          "upstream_model" => source_model_metadata(id, modalities, tools?, reasoning?),
           "source_assignment_models" => %{
             assignment.id => source_model_metadata(id, modalities, tools?, reasoning?)
           },
@@ -144,6 +168,8 @@ defmodule CodexPooler.Dev.OpenAIV1Fixture.Models do
   defp source_model_metadata(id, modalities, tools?, reasoning?) do
     %{
       "slug" => id,
+      "visibility" => "list",
+      "priority" => 20,
       "input_modalities" => modalities,
       "supports_tools" => tools?
     }
@@ -152,6 +178,8 @@ defmodule CodexPooler.Dev.OpenAIV1Fixture.Models do
 
   defp maybe_put_reasoning_metadata(metadata, true) do
     Map.merge(metadata, %{
+      "context_window" => 272_000,
+      "effective_context_window_percent" => 95,
       "capabilities" => %{"reasoning" => true},
       "supported_reasoning_levels" => ["none"],
       "default_reasoning_level" => "none"

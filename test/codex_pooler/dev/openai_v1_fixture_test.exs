@@ -67,7 +67,7 @@ defmodule CodexPooler.Dev.OpenAIV1FixtureTest do
     assert %RoutingSettings{allow_image_generation: true, v1_compatibility_enabled: true} =
              Repo.get(RoutingSettings, pool_id)
 
-    assert Repo.aggregate(from(model in Model, where: model.pool_id == ^pool_id), :count) == 4
+    assert Repo.aggregate(from(model in Model, where: model.pool_id == ^pool_id), :count) == 5
 
     assert %Model{supports_responses: true, supports_streaming: true} =
              Repo.get_by(Model, pool_id: pool_id, exposed_model_id: "gpt-5.6-terra")
@@ -85,6 +85,27 @@ defmodule CodexPooler.Dev.OpenAIV1FixtureTest do
 
     assert %{"input_modalities" => ["text", "image"], "supports_tools" => true} =
              source_models[setup["created"]["assignment_id"]]
+
+    assert text_metadata["context_window"] == 272_000
+    assert ModelMetadata.effective_context_window(text_metadata) == 258_400
+
+    assert source_models[setup["created"]["assignment_id"]]["context_window"] == 272_000
+
+    assert source_models[setup["created"]["assignment_id"]]["visibility"] == "list"
+    assert source_models[setup["created"]["assignment_id"]]["priority"] == 20
+
+    assert %Model{supports_responses: true, supports_streaming: true, supports_tools: true} =
+             decoy = Repo.get_by(Model, pool_id: pool_id, exposed_model_id: "fixture-review-host")
+
+    assert %{"visibility" => "hide", "priority" => 0, "supports_tools" => true} =
+             decoy.metadata["source_assignment_models"][setup["created"]["assignment_id"]]
+
+    assert %{"visibility" => "hide", "priority" => 0} = ModelMetadata.metadata(decoy)
+
+    assert %{"visibility" => "list", "priority" => 20} =
+             ModelMetadata.metadata(
+               Repo.get_by!(Model, pool_id: pool_id, exposed_model_id: "gpt-5.5")
+             )
 
     assert %Model{
              supports_responses: true,
@@ -107,7 +128,7 @@ defmodule CodexPooler.Dev.OpenAIV1FixtureTest do
                where: window.upstream_identity_id == ^identity_id
              ),
              :count
-           ) == 10
+           ) == 12
 
     assert {:ok, second} = OpenAIV1Fixture.acquire(context.options)
     assert second.leases == 2
