@@ -631,6 +631,57 @@ defmodule CodexPoolerWeb.V1.ChatCompletionsControllerTest do
     refute Map.has_key?(translated_tool, "function")
   end
 
+  test "POST /v1/chat/completions accepts tool replay with empty assistant content", %{conn: conn} do
+    upstream =
+      start_upstream(
+        FakeUpstream.json_response(%{
+          "id" => "resp_replay_fixture",
+          "status" => "completed",
+          "output" => []
+        })
+      )
+
+    setup = gateway_setup(upstream)
+
+    response =
+      conn
+      |> auth(setup)
+      |> post("/v1/chat/completions", %{
+        "model" => setup.model.exposed_model_id,
+        "messages" => [
+          %{
+            "role" => "assistant",
+            "content" => [],
+            "tool_calls" => [
+              %{
+                "id" => "call_fixture",
+                "type" => "function",
+                "function" => %{"name" => "fixture", "arguments" => "{}"}
+              }
+            ]
+          },
+          %{
+            "role" => "tool",
+            "tool_call_id" => "call_fixture",
+            "content" => [%{"type" => "text", "text" => "synthetic result"}]
+          }
+        ]
+      })
+
+    assert %{"object" => "chat.completion"} = json_response(response, 200)
+    assert [captured] = FakeUpstream.requests(upstream)
+
+    assert Enum.any?(
+             captured.json["input"],
+             &(&1["type"] == "function_call" and &1["call_id"] == "call_fixture")
+           )
+
+    assert Enum.any?(
+             captured.json["input"],
+             &(&1["type"] == "function_call_output" and &1["call_id"] == "call_fixture")
+           )
+  end
+
   @tag :streaming_chat
   test "POST /v1/chat/completions streaming emits chat completion chunks and done", %{
     conn: conn

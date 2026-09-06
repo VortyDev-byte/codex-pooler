@@ -1115,6 +1115,42 @@ defmodule CodexPooler.Gateway.OpenAICompatibilityTest do
     assert result.payload["tools"] == [tool]
   end
 
+  test "Chat preserves tool replay with an empty assistant content array" do
+    messages = [
+      %{
+        "role" => "assistant",
+        "content" => [],
+        "tool_calls" => [
+          %{
+            "id" => "call_fixture",
+            "type" => "function",
+            "function" => %{"name" => "fixture", "arguments" => "{}"}
+          }
+        ]
+      },
+      %{
+        "role" => "tool",
+        "tool_call_id" => "call_fixture",
+        "content" => [%{"type" => "text", "text" => "synthetic result"}]
+      }
+    ]
+
+    assert {:ok, result} = Chat.coerce(%{"model" => "gpt-fixture-text", "messages" => messages})
+
+    assert Enum.any?(
+             result.payload["input"],
+             &(&1["type"] == "function_call" and &1["call_id"] == "call_fixture")
+           )
+
+    for message <- [
+          %{"role" => "assistant", "content" => []},
+          %{"role" => "assistant", "content" => [], "tool_calls" => []}
+        ] do
+      assert {:error, %{param: "messages"}} =
+               Chat.coerce(%{"model" => "gpt-fixture-text", "messages" => [message]})
+    end
+  end
+
   @tag :responses_coercion
   test "Chat falls back to Responses-shaped input when messages are empty" do
     payload = %{

@@ -8,7 +8,9 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
   @spec normalize_response(map(), map()) :: map()
   def normalize_response(decoded, chat_payload) when is_map(decoded) do
     message = %{"role" => "assistant", "content" => output_text(decoded)}
-    message = put_if_present(message, "tool_calls", output_tool_calls(decoded))
+    calls = output_tool_calls(decoded)
+    calls = if calls, do: Enum.map(calls, &flat_custom_call(&1, flat_custom_names(chat_payload)))
+    message = put_if_present(message, "tool_calls", calls)
 
     %{
       "id" => response_id(decoded),
@@ -37,6 +39,9 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
           required(:role_sent?) => boolean(),
           required(:visible_seen?) => boolean(),
           required(:tool_call_seen?) => boolean(),
+          required(:tool_indexes) => %{optional(integer()) => non_neg_integer()},
+          required(:flat_custom_names) => MapSet.t(String.t()),
+          required(:flat_custom_indexes) => MapSet.t(non_neg_integer()),
           required(:terminal_seen?) => boolean(),
           required(:include_usage?) => boolean(),
           required(:discarding_oversized?) => boolean()
@@ -278,7 +283,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
 
   defp tool_call_item_chunk(%{"type" => "function_call"} = item, context, state) do
     state = %{state | tool_call_seen?: true}
-    index = tool_call_index(item, context)
+    {index, state} = chat_tool_index(tool_call_index(item, context), state)
 
     delta = %{
       "tool_calls" => [
@@ -299,7 +304,12 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
 
   defp tool_call_item_chunk(%{"type" => "custom_tool_call"} = item, context, state) do
     state = %{state | tool_call_seen?: true}
-    index = tool_call_index(item, context)
+    {index, state} = chat_tool_index(tool_call_index(item, context), state)
+
+    state =
+      if MapSet.member?(state.flat_custom_names, item["name"]),
+        do: %{state | flat_custom_indexes: MapSet.put(state.flat_custom_indexes, index)},
+        else: state
 
     delta = %{
       "tool_calls" => [
@@ -322,7 +332,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
 
   defp tool_call_arguments_chunk(decoded, state) do
     state = %{state | tool_call_seen?: true}
-    index = Map.get(decoded, "output_index") || 0
+    {index, state} = chat_tool_index(Map.get(decoded, "output_index") || 0, state)
 
     delta = %{
       "tool_calls" => [
@@ -338,7 +348,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
 
   defp custom_tool_call_input_chunk(decoded, state) do
     state = %{state | tool_call_seen?: true}
-    index = Map.get(decoded, "output_index") || 0
+    {index, state} = chat_tool_index(Map.get(decoded, "output_index") || 0, state)
 
     delta = %{
       "tool_calls" => [
@@ -392,6 +402,23 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
   end
 
   defp chat_sse_chunk(delta, finish_reason, state) do
+    delta =
+      case delta do
+        %{"tool_calls" => calls} ->
+          Map.put(
+            delta,
+            "tool_calls",
+            Enum.map(calls, fn call ->
+              if MapSet.member?(state.flat_custom_indexes, call["index"]),
+                do: flat_custom_call(call, state.flat_custom_names, true),
+                else: call
+            end)
+          )
+
+        _ ->
+          delta
+      end
+
     payload =
       %{
         "id" => state.id,
@@ -422,6 +449,9 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
       role_sent?: false,
       visible_seen?: false,
       tool_call_seen?: false,
+      tool_indexes: %{},
+      flat_custom_names: flat_custom_names(chat_payload),
+      flat_custom_indexes: MapSet.new(),
       terminal_seen?: false,
       include_usage?: get_in(chat_payload, ["stream_options", "include_usage"]) == true,
       discarding_oversized?: false
@@ -546,6 +576,30 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
     end
   end
 
+  defp flat_custom_names(payload) do
+    payload
+    |> Map.get("tools", [])
+    |> Enum.flat_map(fn
+      %{"type" => "custom", "name" => name} when is_binary(name) -> [name]
+      _ -> []
+    end)
+    |> MapSet.new()
+  end
+
+  defp flat_custom_call(call, names, force? \\ false)
+
+  defp flat_custom_call(%{"custom" => custom} = call, names, force?) do
+    if force? or MapSet.member?(names, custom["name"]) do
+      function = custom |> Map.take(["name"]) |> Map.put("arguments", custom["input"] || "")
+      call = call |> Map.delete("custom") |> Map.put("function", function)
+      if Map.has_key?(call, "type"), do: Map.put(call, "type", "function"), else: call
+    else
+      call
+    end
+  end
+
+  defp flat_custom_call(call, _names, _force?), do: call
+
   defp output_items(decoded) do
     decoded
     |> response_map()
@@ -632,6 +686,17 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletions do
   defp tool_call_index(%{"output_index" => index}, _context) when is_integer(index), do: index
   defp tool_call_index(_item, %{"output_index" => index}) when is_integer(index), do: index
   defp tool_call_index(_item, _context), do: 0
+
+  defp chat_tool_index(output_index, state) do
+    case Map.fetch(state.tool_indexes, output_index) do
+      {:ok, index} ->
+        {index, state}
+
+      :error ->
+        index = map_size(state.tool_indexes)
+        {index, %{state | tool_indexes: Map.put(state.tool_indexes, output_index, index)}}
+    end
+  end
 
   defp effective_stream_type(event_type, data_type)
        when is_binary(event_type) and is_binary(data_type) and event_type != data_type,

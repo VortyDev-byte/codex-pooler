@@ -229,7 +229,8 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.Chat do
 
   defp valid_message?(%{"role" => "assistant", "tool_calls" => tool_calls} = message)
        when is_list(tool_calls) do
-    valid_assistant_tool_message_content?(Map.get(message, "content")) and
+    (valid_assistant_tool_message_content?(Map.get(message, "content")) or
+       (message["content"] == [] and tool_calls != [])) and
       valid_assistant_tool_calls?(tool_calls)
   end
 

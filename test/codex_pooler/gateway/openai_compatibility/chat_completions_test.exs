@@ -3,6 +3,60 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletionsTest do
 
   alias CodexPooler.Gateway.OpenAICompatibility.{Chat, ChatCompletions}
 
+  test "flat custom declarations return raw input through function arguments" do
+    payload = %{
+      "model" => "gpt-example",
+      "tools" => [%{"type" => "custom", "name" => "fixture_patch"}]
+    }
+
+    item = %{
+      "type" => "custom_tool_call",
+      "name" => "fixture_patch",
+      "call_id" => "call_fixture",
+      "input" => "synthetic patch"
+    }
+
+    response =
+      ChatCompletions.normalize_response(%{"status" => "completed", "output" => [item]}, payload)
+
+    assert [
+             %{
+               "type" => "function",
+               "function" => %{"name" => "fixture_patch", "arguments" => "synthetic patch"}
+             }
+           ] = get_in(response, ["choices", Access.at(0), "message", "tool_calls"])
+
+    events = [
+      sse_event("response.output_item.added", %{
+        "output_index" => 1,
+        "item" => Map.put(item, "input", "")
+      }),
+      sse_event("response.custom_tool_call_input.delta", %{
+        "output_index" => 1,
+        "delta" => "synthetic patch"
+      })
+    ]
+
+    {stream, _} =
+      ChatCompletions.normalize_stream_data(
+        IO.iodata_to_binary(events),
+        ChatCompletions.stream_state(payload)
+      )
+
+    calls =
+      normalized_sse_payloads(stream)
+      |> Enum.flat_map(&(get_in(&1, ["choices", Access.at(0), "delta", "tool_calls"]) || []))
+
+    assert [
+             %{
+               "index" => 0,
+               "type" => "function",
+               "function" => %{"name" => "fixture_patch", "arguments" => ""}
+             },
+             %{"index" => 0, "function" => %{"arguments" => "synthetic patch"}}
+           ] = calls
+  end
+
   test "completed function and custom calls request tool execution in JSON and SSE" do
     for type <- ["function_call", "custom_tool_call"],
         {status, expected} <- [
@@ -99,6 +153,52 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.ChatCompletionsTest do
   end
 
   describe "normalize_stream_data/2" do
+    test "tool indexes exclude reasoning and message output items" do
+      events = [
+        sse_event("response.output_item.added", %{
+          "item" => %{"type" => "reasoning"},
+          "output_index" => 0
+        }),
+        sse_event("response.output_item.added", %{
+          "item" => %{
+            "type" => "custom_tool_call",
+            "call_id" => "call_patch",
+            "name" => "fixture_patch"
+          },
+          "output_index" => 1
+        }),
+        sse_event("response.custom_tool_call_input.delta", %{
+          "output_index" => 1,
+          "delta" => "synthetic patch"
+        }),
+        sse_event("response.output_item.added", %{
+          "item" => %{
+            "type" => "function_call",
+            "call_id" => "call_read",
+            "name" => "fixture_read",
+            "arguments" => ""
+          },
+          "output_index" => 3
+        }),
+        sse_event("response.function_call_arguments.delta", %{
+          "output_index" => 3,
+          "delta" => "{}"
+        })
+      ]
+
+      {stream, _state} =
+        ChatCompletions.normalize_stream_data(
+          IO.iodata_to_binary(events),
+          ChatCompletions.stream_state(%{"model" => "gpt-example"})
+        )
+
+      calls =
+        normalized_sse_payloads(stream)
+        |> Enum.flat_map(&(get_in(&1, ["choices", Access.at(0), "delta", "tool_calls"]) || []))
+
+      assert Enum.map(calls, & &1["index"]) == [0, 0, 1, 1]
+    end
+
     test "normalizes a terminal event framed by standalone CR before stream close" do
       state = ChatCompletions.stream_state(%{"model" => "gpt-example"})
 
