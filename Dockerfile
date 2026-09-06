@@ -1,4 +1,6 @@
-﻿ARG DEBIAN_MIRROR=
+# syntax=docker/dockerfile:1.7
+
+ARG DEBIAN_MIRROR=
 ARG DEBIAN_SECURITY_MIRROR=
 
 FROM node:26.8.1-slim AS assets_deps
@@ -8,7 +10,10 @@ ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 WORKDIR /app
 
 COPY assets/package.json assets/package-lock.json ./assets/
-RUN npm ci --prefix assets
+# Docker Desktop's BuildKit sandbox can intermittently fail DNS lookups even
+# while the Desktop VM itself has working DNS. Host networking moves external
+# dependency resolution out of that sandbox for reproducible Windows builds.
+RUN --network=host npm ci --prefix assets
 
 FROM elixir:1.20.2-otp-28-slim AS builder
 
@@ -16,8 +21,7 @@ ARG DEBIAN_MIRROR
 ARG DEBIAN_SECURITY_MIRROR
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl && update-ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN mix local.hex --force && mix local.rebar --force
+ENV ERL_AFLAGS="+JMsingle true"
 ENV MIX_ENV=prod
 
 WORKDIR /app
@@ -42,13 +46,12 @@ RUN for file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do
   && apt-get install -y --no-install-recommends build-essential ca-certificates git \
   && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl && update-ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN mix local.hex --force && mix local.rebar --force
+RUN --network=host mix local.hex --force && mix local.rebar --force
 
 COPY mix.exs mix.lock ./
 COPY config config
-RUN mix deps.get --only prod && mix deps.compile
-RUN for attempt in 1 2 3; do \
+RUN --network=host mix deps.get --only prod && mix deps.compile
+RUN --network=host for attempt in 1 2 3; do \
     mix tailwind.install && exit 0; \
     if [ "${attempt}" -eq 3 ]; then exit 1; fi; \
     sleep "$((attempt * 2))"; \

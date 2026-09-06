@@ -6,12 +6,18 @@ name: vortex-codex-pooler
 
 services:
   migrate:
-    build: .
+    build:
+      context: .
+      network: host
     image: vortex-codex-pooler:local
 
   app:
-    build: .
+    build:
+      context: .
+      network: host
     image: vortex-codex-pooler:local
+    ports:
+      - "4100:4000"
 
 volumes:
   codex-pooler-postgres:
