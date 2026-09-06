@@ -89,6 +89,18 @@ defmodule CodexPooler.Upstreams.Auth.TokenRefreshMetadata do
 
   def project_access_token_expiry(_metadata), do: AccessTokenExpiry.unknown()
 
+  @spec recover_legacy_access_token_expiry(map(), AccessTokenExpiry.resolution(), pos_integer()) ::
+          map()
+  def recover_legacy_access_token_expiry(metadata, resolution, epoch)
+      when is_integer(epoch) and epoch > 0 do
+    metadata
+    |> Map.delete(@canonical_expiry_key)
+    |> Map.delete(@legacy_expiry_key)
+    |> Map.put(@credential_epoch_key, epoch)
+    |> put_in([@token_refresh_key, @marker_key], marker(resolution, epoch))
+    |> maybe_put_canonical_expiry(resolution)
+  end
+
   @spec rebind_access_token_expiry(map(), map(), pos_integer()) :: map()
   def rebind_access_token_expiry(metadata, previous_metadata, new_epoch)
       when is_map(metadata) and is_map(previous_metadata) and is_integer(new_epoch) and

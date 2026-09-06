@@ -9,6 +9,7 @@ defmodule CodexPooler.Upstreams.Reconciliation.PoolReconciliation do
   alias CodexPooler.Quotas.WindowClassifier
   alias CodexPooler.Repo
   alias CodexPooler.TransportFailureReason
+  alias CodexPooler.Upstreams.Auth.LegacyAccessTokenExpiry
   alias CodexPooler.Upstreams.Lifecycle.CredentialFencing
   alias CodexPooler.Upstreams.Quota
   alias CodexPooler.Upstreams.Quota.AccountAvailabilityStore
@@ -67,10 +68,12 @@ defmodule CodexPooler.Upstreams.Reconciliation.PoolReconciliation do
 
     case load_active_assignment_with_identity(pool_id, assignment_id) do
       {%PoolUpstreamAssignment{} = assignment, %UpstreamIdentity{} = identity} ->
-        quota_step =
-          refresh_reconciliation_quota(identity, assignment, opts, persisted_window_reuse_at)
+        with {:ok, identity} <- LegacyAccessTokenExpiry.repair(identity) do
+          quota_step =
+            refresh_reconciliation_quota(identity, assignment, opts, persisted_window_reuse_at)
 
-        finalize_reconciliation(assignment, identity, quota_step, opts)
+          finalize_reconciliation(assignment, identity, quota_step, opts)
+        end
 
       nil ->
         {:error,
