@@ -45,6 +45,9 @@ defmodule CodexPoolerWeb.DevRoutes do
                   CodexPooler.Dev.NativeCompactionAuthorizationObserver.Plug
 
           forward "/native-compaction/trace", CodexPooler.Dev.NativeCompactionTrace.Plug
+
+          forward "/native-compaction/pre-attempt-drain",
+                  CodexPooler.Dev.NativePreAttemptDrain.Plug
         end
       end
     end
