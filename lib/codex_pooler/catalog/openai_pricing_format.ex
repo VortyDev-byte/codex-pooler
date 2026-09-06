@@ -503,6 +503,23 @@ defmodule CodexPooler.Catalog.OpenAIPricingFormat do
     |> Enum.reduce(%{state | rows: []}, fn {_identifier, rows}, acc ->
       coalesce_model_rows(acc, rows)
     end)
+    |> recount_rows()
+  end
+
+  defp recount_rows(state) do
+    summary =
+      Map.merge(state.summary, %{
+        importable_rows: length(state.rows),
+        priced_rows: Enum.count(state.rows, &(&1.availability == "priced")),
+        unavailable_rows: Enum.count(state.rows, &(&1.availability == "unavailable"))
+      })
+
+    buckets =
+      Enum.reduce(state.rows, Map.new(@snapshot_buckets, &{&1, 0}), fn row, counts ->
+        Map.update!(counts, row.price_bucket, &(&1 + 1))
+      end)
+
+    %{state | summary: summary, buckets: buckets}
   end
 
   defp coalesce_model_rows(state, rows) do

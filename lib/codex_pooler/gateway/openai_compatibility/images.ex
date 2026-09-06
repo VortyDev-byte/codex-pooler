@@ -167,12 +167,21 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.Images do
          :ok <- validate_one_of(payload, "size", @sizes),
          :ok <- validate_one_of(payload, "quality", @qualities),
          :ok <- validate_one_of(payload, "background", @backgrounds),
-         :ok <- validate_one_of(payload, "input_fidelity", @input_fidelities),
+         :ok <- validate_input_fidelity(payload),
          :ok <- validate_n(payload),
          :ok <- validate_one_of(payload, "response_format", ["b64_json"]) do
       discard_user_identifier(payload)
     end
   end
+
+  defp validate_input_fidelity(%{"model" => model, "input_fidelity" => _})
+       when model in ["gpt-image-2", "gpt-image-1-mini"] do
+    {:error,
+     Error.invalid_request("input_fidelity is not supported for #{model}", "input_fidelity")}
+  end
+
+  defp validate_input_fidelity(payload),
+    do: validate_one_of(payload, "input_fidelity", @input_fidelities)
 
   defp validate_generation_only(%{"image" => _image}),
     do: {:error, Error.invalid_request("image is only supported for image edits", "image")}
