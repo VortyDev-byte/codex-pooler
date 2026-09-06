@@ -2335,6 +2335,21 @@ defmodule CodexPoolerWeb.V1.ChatCompletionsControllerTest do
     assert [captured] = FakeUpstream.requests(upstream)
     assert captured.json["tools"] == [Map.put(custom, "type", "custom")]
     assert captured.json["tool_choice"] == %{"type" => "custom", "name" => "code_exec"}
+
+    flat_response =
+      conn
+      |> recycle()
+      |> auth(setup)
+      |> post(
+        "/v1/chat/completions",
+        Map.put(payload, "tools", [Map.put(custom, "type", "custom")])
+      )
+
+    assert %{"choices" => [%{"finish_reason" => "tool_calls"}]} =
+             json_response(flat_response, 200)
+
+    assert [_, flat_capture] = FakeUpstream.requests(upstream)
+    assert flat_capture.json["tools"] == [Map.put(custom, "type", "custom")]
   end
 
   @tag :streaming_chat
@@ -2591,7 +2606,7 @@ defmodule CodexPoolerWeb.V1.ChatCompletionsControllerTest do
         %{"type" => "unknown", "function" => %{"name" => "lookup_fixture", "parameters" => %{}}}
       ]),
       Map.put(chat_payload(setup), "tools", [
-        %{"type" => "custom", "name" => "custom_fixture"}
+        %{"type" => "custom", "name" => 42}
       ]),
       Map.put(chat_payload(setup), "tools", [
         %{"type" => "custom", "custom" => %{}}

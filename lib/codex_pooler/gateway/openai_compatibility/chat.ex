@@ -756,6 +756,13 @@ defmodule CodexPooler.Gateway.OpenAICompatibility.Chat do
     end
   end
 
+  defp translate_tool(%{"type" => "custom", "name" => name} = tool)
+       when is_binary(name) and not is_map_key(tool, "custom") do
+    with :ok <- validate_exact_custom_keys(tool, ["type", "name", "description", "format"]) do
+      {:ok, tool}
+    end
+  end
+
   defp translate_tool(%{"type" => "custom"}),
     do: {:error, Error.invalid_request("custom tool requires nested custom properties", "tools")}
 

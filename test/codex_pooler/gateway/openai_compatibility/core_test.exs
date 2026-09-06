@@ -1102,6 +1102,19 @@ defmodule CodexPooler.Gateway.OpenAICompatibilityTest do
     end
   end
 
+  test "Chat accepts a flat custom tool beside ordinary messages" do
+    tool = %{"type" => "custom", "name" => "fixture_edit", "format" => %{"type" => "text"}}
+
+    assert {:ok, result} =
+             Chat.coerce(%{
+               "model" => "gpt-fixture-text",
+               "messages" => [%{"role" => "user", "content" => "synthetic input"}],
+               "tools" => [tool]
+             })
+
+    assert result.payload["tools"] == [tool]
+  end
+
   @tag :responses_coercion
   test "Chat falls back to Responses-shaped input when messages are empty" do
     payload = %{
@@ -4551,8 +4564,7 @@ defmodule CodexPooler.Gateway.OpenAICompatibilityTest do
       }
 
       invalid_cases = [
-        {Map.put(base_payload, "tools", [%{"type" => "custom", "name" => "custom_fixture"}]),
-         "tools"},
+        {Map.put(base_payload, "tools", [%{"type" => "custom", "name" => 42}]), "tools"},
         {Map.put(base_payload, "tools", [%{"type" => "custom", "custom" => %{}}]), "tools"},
         {Map.put(base_payload, "tools", [
            %{
