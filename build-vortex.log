@@ -1,0 +1,1026 @@
+ Image vortex-codex-pooler:local Building 
+ Image vortex-codex-pooler:local Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.16kB done
+#1 DONE 0.0s
+
+#2 [app internal] load build definition from Dockerfile
+#2 transferring dockerfile: 3.68kB 0.0s done
+#2 DONE 0.1s
+
+#3 [migrate] resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#3 DONE 13.0s
+
+#4 [app] docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#4 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#4 CACHED
+
+#5 [app internal] load build definition from Dockerfile
+#5 transferring dockerfile: 3.68kB 0.0s done
+#5 DONE 0.1s
+
+#6 [migrate internal] load build definition from Dockerfile
+#6 transferring dockerfile: 3.68kB 0.0s done
+#6 DONE 0.1s
+
+#7 [migrate internal] load metadata for docker.io/library/elixir:1.20.2-otp-28-slim
+#7 DONE 0.8s
+
+#8 [app internal] load metadata for docker.io/library/node:26.8.1-slim
+#8 DONE 0.8s
+
+#9 [migrate internal] load metadata for docker.io/library/debian:trixie-slim
+#9 DONE 2.0s
+
+#10 [migrate internal] load .dockerignore
+#10 transferring context:
+#10 transferring context: 219B 0.0s done
+#10 DONE 0.2s
+
+#11 [app internal] load .dockerignore
+#11 transferring context: 219B 0.0s done
+#11 DONE 0.2s
+
+#12 [migrate app 1/4] FROM docker.io/library/debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132
+#12 resolve docker.io/library/debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132 0.1s done
+#12 DONE 0.1s
+
+#13 [migrate builder  1/13] FROM docker.io/library/elixir:1.20.2-otp-28-slim@sha256:274bde8ed2003aa8ec03fe0b1796d40d4099c16dc9a20d5eae0f12bb22443225
+#13 resolve docker.io/library/elixir:1.20.2-otp-28-slim@sha256:274bde8ed2003aa8ec03fe0b1796d40d4099c16dc9a20d5eae0f12bb22443225 0.1s done
+#13 DONE 0.1s
+
+#14 [migrate app 2/4] WORKDIR /app
+#14 CACHED
+
+#15 [migrate app 3/4] RUN for file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do     if [ -f "${file}" ] && [ -n "" ]; then       sed -i         -e "s|http://deb.debian.org/debian-security||g"         -e "s|https://deb.debian.org/debian-security||g"         -e "s|http://security.debian.org/debian-security||g"         -e "s|https://security.debian.org/debian-security||g"         "${file}";     fi;     if [ -f "${file}" ] && [ -n "" ]; then       sed -i         -e "s|http://deb.debian.org/debian||g"         -e "s|https://deb.debian.org/debian||g"         "${file}";     fi;   done   && apt-get update   && apt-get install -y --no-install-recommends ca-certificates libncurses6 libstdc++6 openssl tzdata   && rm -rf /var/lib/apt/lists/*   && groupadd --system codex_pooler   && useradd --system --gid codex_pooler --home-dir /app --shell /usr/sbin/nologin codex_pooler
+#15 0.771 Get:1 http://deb.debian.org/debian trixie InRelease [140 kB]
+#15 0.977 Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+#15 1.081 Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+#15 1.163 Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9673 kB]
+#15 4.789 Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [4412 B]
+#15 4.863 Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [251 kB]
+#15 6.728 Fetched 10.2 MB in 6s (1602 kB/s)
+#15 6.728 Reading package lists...
+#15 8.394 Reading package lists...
+#15 9.854 Building dependency tree...
+#15 10.26 Reading state information...
+#15 10.90 libstdc++6 is already the newest version (14.2.0-19).
+#15 10.90 libstdc++6 set to manually installed.
+#15 10.90 tzdata is already the newest version (2026b-0+deb13u1).
+#15 10.90 tzdata set to manually installed.
+#15 10.90 Recommended packages:
+#15 10.90   libgpm2
+#15 10.98 The following NEW packages will be installed:
+#15 10.98   ca-certificates libncurses6 openssl
+#15 10.99 The following packages will be upgraded:
+#15 10.99   libssl3t64 openssl-provider-legacy
+#15 21.25 2 upgraded, 3 newly installed, 0 to remove and 0 not upgraded.
+#15 21.25 Need to get 4544 kB of archives.
+#15 21.25 After this operation, 3328 kB of additional disk space will be used.
+#15 21.25 Get:1 http://deb.debian.org/debian-security trixie-security/main amd64 openssl-provider-legacy amd64 3.5.7-1~deb13u2 [316 kB]
+#15 21.54 Get:2 http://deb.debian.org/debian-security trixie-security/main amd64 libssl3t64 amd64 3.5.7-1~deb13u2 [2454 kB]
+#15 21.84 Get:3 http://deb.debian.org/debian-security trixie-security/main amd64 openssl amd64 3.5.7-1~deb13u2 [1507 kB]
+#15 21.94 Get:4 http://deb.debian.org/debian trixie/main amd64 ca-certificates all 20250419 [162 kB]
+#15 21.95 Get:5 http://deb.debian.org/debian trixie/main amd64 libncurses6 amd64 6.5+20250216-2 [105 kB]
+#15 24.58 Preconfiguring packages ...
+#15 24.79 Fetched 4544 kB in 11s (416 kB/s)
+#15 24.85 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4943 files and directories currently installed.)
+#15 24.87 Preparing to unpack .../openssl-provider-legacy_3.5.7-1~deb13u2_amd64.deb ...
+#15 24.90 Unpacking openssl-provider-legacy (3.5.7-1~deb13u2) over (3.5.6-1~deb13u2) ...
+#15 25.03 Setting up openssl-provider-legacy (3.5.7-1~deb13u2) ...
+#15 25.12 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4943 files and directories currently installed.)
+#15 25.14 Preparing to unpack .../libssl3t64_3.5.7-1~deb13u2_amd64.deb ...
+#15 25.17 Unpacking libssl3t64:amd64 (3.5.7-1~deb13u2) over (3.5.6-1~deb13u2) ...
+#15 25.53 Setting up libssl3t64:amd64 (3.5.7-1~deb13u2) ...
+#15 25.63 Selecting previously unselected package openssl.
+#15 25.63 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4943 files and directories currently installed.)
+#15 25.65 Preparing to unpack .../openssl_3.5.7-1~deb13u2_amd64.deb ...
+#15 25.65 Unpacking openssl (3.5.7-1~deb13u2) ...
+#15 25.83 Selecting previously unselected package ca-certificates.
+#15 25.83 Preparing to unpack .../ca-certificates_20250419_all.deb ...
+#15 25.84 Unpacking ca-certificates (20250419) ...
+#15 25.96 Selecting previously unselected package libncurses6:amd64.
+#15 25.97 Preparing to unpack .../libncurses6_6.5+20250216-2_amd64.deb ...
+#15 25.97 Unpacking libncurses6:amd64 (6.5+20250216-2) ...
+#15 26.05 Setting up libncurses6:amd64 (6.5+20250216-2) ...
+#15 26.07 Setting up openssl (3.5.7-1~deb13u2) ...
+#15 26.10 Setting up ca-certificates (20250419) ...
+#15 28.06 Updating certificates in /etc/ssl/certs...
+#15 31.19 150 added, 0 removed; done.
+#15 31.27 Processing triggers for libc-bin (2.41-12+deb13u3) ...
+#15 31.31 Processing triggers for ca-certificates (20250419) ...
+#15 31.33 Updating certificates in /etc/ssl/certs...
+#15 33.65 0 added, 0 removed; done.
+#15 33.65 Running hooks in /etc/ca-certificates/update.d...
+#15 33.66 done.
+#15 DONE 33.9s
+
+#16 [migrate assets_deps 1/4] FROM docker.io/library/node:26.8.1-slim@sha256:c0753125a3789977aefe869cbebccf70e3cfd7ea84ca48547458f02e4f1d7146
+#16 resolve docker.io/library/node:26.8.1-slim@sha256:c0753125a3789977aefe869cbebccf70e3cfd7ea84ca48547458f02e4f1d7146 0.1s done
+#16 DONE 0.1s
+
+#17 [migrate builder  2/13] WORKDIR /app
+#17 CACHED
+
+#18 [migrate builder  3/13] RUN for file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do     if [ -f "${file}" ] && [ -n "" ]; then       sed -i         -e "s|http://deb.debian.org/debian-security||g"         -e "s|https://deb.debian.org/debian-security||g"         -e "s|http://security.debian.org/debian-security||g"         -e "s|https://security.debian.org/debian-security||g"         "${file}";     fi;     if [ -f "${file}" ] && [ -n "" ]; then       sed -i         -e "s|http://deb.debian.org/debian||g"         -e "s|https://deb.debian.org/debian||g"         "${file}";     fi;   done   && apt-get update   && apt-get install -y --no-install-recommends build-essential ca-certificates git   && rm -rf /var/lib/apt/lists/*
+#18 0.769 Get:1 http://deb.debian.org/debian trixie InRelease [140 kB]
+#18 0.971 Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+#18 1.051 Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+#18 1.129 Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9673 kB]
+#18 5.263 Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [4412 B]
+#18 5.333 Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [251 kB]
+#18 7.172 Fetched 10.2 MB in 7s (1502 kB/s)
+#18 7.172 Reading package lists...
+#18 8.761 Reading package lists...
+#18 10.25 Building dependency tree...
+#18 10.66 Reading state information...
+#18 11.27 The following additional packages will be installed:
+#18 11.27   binutils binutils-common binutils-x86-64-linux-gnu bzip2 cpp cpp-14
+#18 11.27   cpp-14-x86-64-linux-gnu cpp-x86-64-linux-gnu dpkg-dev g++ g++-14
+#18 11.27   g++-14-x86-64-linux-gnu g++-x86-64-linux-gnu gcc gcc-14
+#18 11.27   gcc-14-x86-64-linux-gnu gcc-x86-64-linux-gnu git-man libasan8 libatomic1
+#18 11.27   libbinutils libbrotli1 libc-dev-bin libc6-dev libcc1-0 libcom-err2
+#18 11.27   libcrypt-dev libctf-nobfd0 libctf0 libcurl3t64-gnutls libdpkg-perl
+#18 11.27   liberror-perl libexpat1 libffi8 libgcc-14-dev libgdbm-compat4t64 libgdbm6t64
+#18 11.27   libgnutls30t64 libgomp1 libgprofng0 libgssapi-krb5-2 libhwasan0 libisl23
+#18 11.27   libitm1 libjansson4 libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0
+#18 11.27   libldap2 liblsan0 libmpc3 libmpfr6 libnghttp2-14 libnghttp3-9 libngtcp2-16
+#18 11.27   libngtcp2-crypto-gnutls8 libp11-kit0 libperl5.40 libpsl5t64 libquadmath0
+#18 11.27   librtmp1 libsasl2-2 libsasl2-modules-db libsframe1 libssh2-1t64 libssl3t64
+#18 11.27   libstdc++-14-dev libtasn1-6 libtsan2 libubsan1 linux-libc-dev make openssl
+#18 11.27   openssl-provider-legacy patch perl perl-modules-5.40 rpcsvc-proto xz-utils
+#18 11.28 Suggested packages:
+#18 11.28   binutils-doc gprofng-gui binutils-gold bzip2-doc cpp-doc gcc-14-locales
+#18 11.28   cpp-14-doc debian-keyring debian-tag2upload-keyring g++-multilib
+#18 11.28   g++-14-multilib gcc-14-doc gcc-multilib manpages-dev autoconf automake
+#18 11.28   libtool flex bison gdb gcc-doc gcc-14-multilib gdb-x86-64-linux-gnu
+#18 11.28   gettext-base git-doc git-email git-gui gitk gitweb git-cvs git-mediawiki
+#18 11.28   git-svn libc-devtools glibc-doc sq | sqop | rsop | gosop | pgpainless-cli
+#18 11.28   | gpg-sq | gnupg sensible-utils bzr gdbm-l10n gnutls-bin krb5-doc krb5-user
+#18 11.28   libstdc++-14-doc make-doc ed diffutils-doc perl-doc
+#18 11.28   libterm-readline-gnu-perl | libterm-readline-perl-perl
+#18 11.28   libtap-harness-archive-perl
+#18 11.28 Recommended packages:
+#18 11.28   fakeroot sq | sqop | rsop | gosop | pgpainless-cli | gpg-sq | gnupg
+#18 11.28   libalgorithm-merge-perl less ssh-client manpages manpages-dev
+#18 11.28   libfile-fcntllock-perl liblocale-gettext-perl krb5-locales libldap-common
+#18 11.28   publicsuffix libsasl2-modules netbase
+#18 11.87 The following NEW packages will be installed:
+#18 11.87   binutils binutils-common binutils-x86-64-linux-gnu build-essential bzip2
+#18 11.87   ca-certificates cpp cpp-14 cpp-14-x86-64-linux-gnu cpp-x86-64-linux-gnu
+#18 11.87   dpkg-dev g++ g++-14 g++-14-x86-64-linux-gnu g++-x86-64-linux-gnu gcc gcc-14
+#18 11.87   gcc-14-x86-64-linux-gnu gcc-x86-64-linux-gnu git git-man libasan8 libatomic1
+#18 11.87   libbinutils libbrotli1 libc-dev-bin libc6-dev libcc1-0 libcom-err2
+#18 11.87   libcrypt-dev libctf-nobfd0 libctf0 libcurl3t64-gnutls libdpkg-perl
+#18 11.87   liberror-perl libexpat1 libffi8 libgcc-14-dev libgdbm-compat4t64 libgdbm6t64
+#18 11.87   libgnutls30t64 libgomp1 libgprofng0 libgssapi-krb5-2 libhwasan0 libisl23
+#18 11.87   libitm1 libjansson4 libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0
+#18 11.87   libldap2 liblsan0 libmpc3 libmpfr6 libnghttp2-14 libnghttp3-9 libngtcp2-16
+#18 11.87   libngtcp2-crypto-gnutls8 libp11-kit0 libperl5.40 libpsl5t64 libquadmath0
+#18 11.87   librtmp1 libsasl2-2 libsasl2-modules-db libsframe1 libssh2-1t64
+#18 11.87   libstdc++-14-dev libtasn1-6 libtsan2 libubsan1 linux-libc-dev make openssl
+#18 11.87   patch perl perl-modules-5.40 rpcsvc-proto xz-utils
+#18 11.88 The following packages will be upgraded:
+#18 11.88   libssl3t64 openssl-provider-legacy
+#18 22.11 2 upgraded, 81 newly installed, 0 to remove and 9 not upgraded.
+#18 22.11 Need to get 102 MB of archives.
+#18 22.11 After this operation, 405 MB of additional disk space will be used.
+#18 22.11 Get:1 http://deb.debian.org/debian-security trixie-security/main amd64 libexpat1 amd64 2.8.3-1~deb13u1 [123 kB]
+#18 22.28 Get:2 http://deb.debian.org/debian-security trixie-security/main amd64 openssl-provider-legacy amd64 3.5.7-1~deb13u2 [316 kB]
+#18 22.38 Get:3 http://deb.debian.org/debian-security trixie-security/main amd64 libssl3t64 amd64 3.5.7-1~deb13u2 [2454 kB]
+#18 22.63 Get:4 http://deb.debian.org/debian trixie/main amd64 bzip2 amd64 1.0.8-6 [40.5 kB]
+#18 22.63 Get:5 http://deb.debian.org/debian-security trixie-security/main amd64 openssl amd64 3.5.7-1~deb13u2 [1507 kB]
+#18 22.76 Get:6 http://deb.debian.org/debian trixie/main amd64 ca-certificates all 20250419 [162 kB]
+#18 22.77 Get:7 http://deb.debian.org/debian trixie/main amd64 perl-modules-5.40 all 5.40.1-6 [3019 kB]
+#18 23.02 Get:8 http://deb.debian.org/debian trixie/main amd64 libgdbm6t64 amd64 1.24-2 [75.2 kB]
+#18 23.06 Get:9 http://deb.debian.org/debian trixie/main amd64 libgdbm-compat4t64 amd64 1.24-2 [50.3 kB]
+#18 23.06 Get:10 http://deb.debian.org/debian trixie/main amd64 libperl5.40 amd64 5.40.1-6 [4341 kB]
+#18 23.56 Get:11 http://deb.debian.org/debian trixie/main amd64 perl amd64 5.40.1-6 [267 kB]
+#18 23.58 Get:12 http://deb.debian.org/debian trixie/main amd64 xz-utils amd64 5.8.1-1+deb13u1 [659 kB]
+#18 23.65 Get:13 http://deb.debian.org/debian trixie/main amd64 libsframe1 amd64 2.44-3 [78.4 kB]
+#18 23.65 Get:14 http://deb.debian.org/debian trixie/main amd64 binutils-common amd64 2.44-3 [2509 kB]
+#18 23.82 Get:15 http://deb.debian.org/debian trixie/main amd64 libbinutils amd64 2.44-3 [534 kB]
+#18 23.85 Get:16 http://deb.debian.org/debian trixie/main amd64 libgprofng0 amd64 2.44-3 [808 kB]
+#18 23.90 Get:17 http://deb.debian.org/debian trixie/main amd64 libctf-nobfd0 amd64 2.44-3 [156 kB]
+#18 23.91 Get:18 http://deb.debian.org/debian trixie/main amd64 libctf0 amd64 2.44-3 [88.6 kB]
+#18 23.92 Get:19 http://deb.debian.org/debian trixie/main amd64 libjansson4 amd64 2.14-2+b3 [39.8 kB]
+#18 23.93 Get:20 http://deb.debian.org/debian trixie/main amd64 binutils-x86-64-linux-gnu amd64 2.44-3 [1014 kB]
+#18 23.99 Get:21 http://deb.debian.org/debian trixie/main amd64 binutils amd64 2.44-3 [265 kB]
+#18 24.01 Get:22 http://deb.debian.org/debian trixie/main amd64 libc-dev-bin amd64 2.41-12+deb13u3 [59.8 kB]
+#18 24.02 Get:23 http://deb.debian.org/debian-security trixie-security/main amd64 linux-libc-dev all 6.12.107-1 [2919 kB]
+#18 24.20 Get:24 http://deb.debian.org/debian trixie/main amd64 libcrypt-dev amd64 1:4.4.38-1 [119 kB]
+#18 24.21 Get:25 http://deb.debian.org/debian trixie/main amd64 rpcsvc-proto amd64 1.4.3-1 [63.3 kB]
+#18 24.21 Get:26 http://deb.debian.org/debian trixie/main amd64 libc6-dev amd64 2.41-12+deb13u3 [1992 kB]
+#18 24.35 Get:27 http://deb.debian.org/debian trixie/main amd64 libisl23 amd64 0.27-1 [659 kB]
+#18 24.39 Get:28 http://deb.debian.org/debian trixie/main amd64 libmpfr6 amd64 4.2.2-1 [729 kB]
+#18 24.46 Get:29 http://deb.debian.org/debian trixie/main amd64 libmpc3 amd64 1.3.1-1+b3 [52.2 kB]
+#18 24.46 Get:30 http://deb.debian.org/debian trixie/main amd64 cpp-14-x86-64-linux-gnu amd64 14.2.0-19 [11.0 MB]
+#18 25.39 Get:31 http://deb.debian.org/debian trixie/main amd64 cpp-14 amd64 14.2.0-19 [1280 B]
+#18 25.39 Get:32 http://deb.debian.org/debian trixie/main amd64 cpp-x86-64-linux-gnu amd64 4:14.2.0-1 [4840 B]
+#18 25.40 Get:33 http://deb.debian.org/debian trixie/main amd64 cpp amd64 4:14.2.0-1 [1568 B]
+#18 25.40 Get:34 http://deb.debian.org/debian trixie/main amd64 libcc1-0 amd64 14.2.0-19 [42.8 kB]
+#18 25.40 Get:35 http://deb.debian.org/debian trixie/main amd64 libgomp1 amd64 14.2.0-19 [137 kB]
+#18 25.41 Get:36 http://deb.debian.org/debian trixie/main amd64 libitm1 amd64 14.2.0-19 [26.0 kB]
+#18 25.41 Get:37 http://deb.debian.org/debian trixie/main amd64 libatomic1 amd64 14.2.0-19 [9308 B]
+#18 25.41 Get:38 http://deb.debian.org/debian trixie/main amd64 libasan8 amd64 14.2.0-19 [2725 kB]
+#18 27.18 Get:39 http://deb.debian.org/debian trixie/main amd64 liblsan0 amd64 14.2.0-19 [1204 kB]
+#18 27.30 Get:40 http://deb.debian.org/debian trixie/main amd64 libtsan2 amd64 14.2.0-19 [2460 kB]
+#18 27.53 Get:41 http://deb.debian.org/debian trixie/main amd64 libubsan1 amd64 14.2.0-19 [1074 kB]
+#18 27.69 Get:42 http://deb.debian.org/debian trixie/main amd64 libhwasan0 amd64 14.2.0-19 [1488 kB]
+#18 27.81 Get:43 http://deb.debian.org/debian trixie/main amd64 libquadmath0 amd64 14.2.0-19 [145 kB]
+#18 27.82 Get:44 http://deb.debian.org/debian trixie/main amd64 libgcc-14-dev amd64 14.2.0-19 [2672 kB]
+#18 28.16 Get:45 http://deb.debian.org/debian trixie/main amd64 gcc-14-x86-64-linux-gnu amd64 14.2.0-19 [21.4 MB]
+#18 30.65 Get:46 http://deb.debian.org/debian trixie/main amd64 gcc-14 amd64 14.2.0-19 [540 kB]
+#18 30.70 Get:47 http://deb.debian.org/debian trixie/main amd64 gcc-x86-64-linux-gnu amd64 4:14.2.0-1 [1436 B]
+#18 30.70 Get:48 http://deb.debian.org/debian trixie/main amd64 gcc amd64 4:14.2.0-1 [5136 B]
+#18 30.70 Get:49 http://deb.debian.org/debian trixie/main amd64 libstdc++-14-dev amd64 14.2.0-19 [2376 kB]
+#18 30.97 Get:50 http://deb.debian.org/debian trixie/main amd64 g++-14-x86-64-linux-gnu amd64 14.2.0-19 [12.1 MB]
+#18 32.28 Get:51 http://deb.debian.org/debian trixie/main amd64 g++-14 amd64 14.2.0-19 [22.5 kB]
+#18 32.28 Get:52 http://deb.debian.org/debian trixie/main amd64 g++-x86-64-linux-gnu amd64 4:14.2.0-1 [1200 B]
+#18 32.28 Get:53 http://deb.debian.org/debian trixie/main amd64 g++ amd64 4:14.2.0-1 [1344 B]
+#18 32.28 Get:54 http://deb.debian.org/debian trixie/main amd64 make amd64 4.4.1-2 [463 kB]
+#18 32.33 Get:55 http://deb.debian.org/debian trixie/main amd64 libdpkg-perl all 1.22.22 [651 kB]
+#18 32.39 Get:56 http://deb.debian.org/debian trixie/main amd64 patch amd64 2.8-2 [134 kB]
+#18 32.41 Get:57 http://deb.debian.org/debian trixie/main amd64 dpkg-dev all 1.22.22 [1337 kB]
+#18 32.56 Get:58 http://deb.debian.org/debian trixie/main amd64 build-essential amd64 12.12 [4624 B]
+#18 32.56 Get:59 http://deb.debian.org/debian trixie/main amd64 libbrotli1 amd64 1.1.0-2+b7 [307 kB]
+#18 32.60 Get:60 http://deb.debian.org/debian trixie/main amd64 libffi8 amd64 3.4.8-2 [24.1 kB]
+#18 32.60 Get:61 http://deb.debian.org/debian trixie/main amd64 libp11-kit0 amd64 0.25.5-3 [425 kB]
+#18 32.64 Get:62 http://deb.debian.org/debian trixie/main amd64 libtasn1-6 amd64 4.20.0-2+deb13u1 [50.1 kB]
+#18 32.65 Get:63 http://deb.debian.org/debian trixie/main amd64 libgnutls30t64 amd64 3.8.9-3+deb13u4 [1469 kB]
+#18 32.80 Get:64 http://deb.debian.org/debian trixie/main amd64 libkrb5support0 amd64 1.21.3-5+deb13u1 [33.1 kB]
+#18 32.80 Get:65 http://deb.debian.org/debian trixie/main amd64 libcom-err2 amd64 1.47.2-3+b11 [25.0 kB]
+#18 32.81 Get:66 http://deb.debian.org/debian trixie/main amd64 libk5crypto3 amd64 1.21.3-5+deb13u1 [81.2 kB]
+#18 32.82 Get:67 http://deb.debian.org/debian trixie/main amd64 libkeyutils1 amd64 1.6.3-6 [9456 B]
+#18 32.82 Get:68 http://deb.debian.org/debian trixie/main amd64 libkrb5-3 amd64 1.21.3-5+deb13u1 [326 kB]
+#18 32.86 Get:69 http://deb.debian.org/debian trixie/main amd64 libgssapi-krb5-2 amd64 1.21.3-5+deb13u1 [138 kB]
+#18 32.87 Get:70 http://deb.debian.org/debian trixie/main amd64 libsasl2-modules-db amd64 2.1.28+dfsg1-9 [19.8 kB]
+#18 32.87 Get:71 http://deb.debian.org/debian trixie/main amd64 libsasl2-2 amd64 2.1.28+dfsg1-9 [57.5 kB]
+#18 32.88 Get:72 http://deb.debian.org/debian trixie/main amd64 libldap2 amd64 2.6.10+dfsg-1 [194 kB]
+#18 32.90 Get:73 http://deb.debian.org/debian trixie/main amd64 libnghttp2-14 amd64 1.64.0-1.1+deb13u1 [76.2 kB]
+#18 32.91 Get:74 http://deb.debian.org/debian trixie/main amd64 libnghttp3-9 amd64 1.8.0-1 [67.7 kB]
+#18 32.92 Get:75 http://deb.debian.org/debian trixie/main amd64 libngtcp2-16 amd64 1.11.0-1+deb13u1 [132 kB]
+#18 32.93 Get:76 http://deb.debian.org/debian trixie/main amd64 libngtcp2-crypto-gnutls8 amd64 1.11.0-1+deb13u1 [29.5 kB]
+#18 32.93 Get:77 http://deb.debian.org/debian trixie/main amd64 libpsl5t64 amd64 0.21.2-1.1+b1 [57.2 kB]
+#18 32.94 Get:78 http://deb.debian.org/debian trixie/main amd64 librtmp1 amd64 2.4+20151223.gitfa8646d.1-2+b5 [58.8 kB]
+#18 32.95 Get:79 http://deb.debian.org/debian trixie/main amd64 libssh2-1t64 amd64 1.11.1-1+deb13u1 [245 kB]
+#18 32.97 Get:80 http://deb.debian.org/debian trixie/main amd64 libcurl3t64-gnutls amd64 8.14.1-2+deb13u4 [384 kB]
+#18 33.01 Get:81 http://deb.debian.org/debian trixie/main amd64 liberror-perl all 0.17030-1 [26.9 kB]
+#18 33.01 Get:82 http://deb.debian.org/debian trixie/main amd64 git-man all 1:2.47.3-0+deb13u1 [2205 kB]
+#18 33.26 Get:83 http://deb.debian.org/debian trixie/main amd64 git amd64 1:2.47.3-0+deb13u1 [8862 kB]
+#18 39.73 Preconfiguring packages ...
+#18 39.88 Fetched 102 MB in 22s (4598 kB/s)
+#18 39.94 Selecting previously unselected package libexpat1:amd64.
+#18 39.94 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 5003 files and directories currently installed.)
+#18 39.95 Preparing to unpack .../libexpat1_2.8.3-1~deb13u1_amd64.deb ...
+#18 39.96 Unpacking libexpat1:amd64 (2.8.3-1~deb13u1) ...
+#18 40.03 Preparing to unpack .../openssl-provider-legacy_3.5.7-1~deb13u2_amd64.deb ...
+#18 40.05 Unpacking openssl-provider-legacy (3.5.7-1~deb13u2) over (3.5.6-1~deb13u2) ...
+#18 40.14 Setting up openssl-provider-legacy (3.5.7-1~deb13u2) ...
+#18 40.39 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 5012 files and directories currently installed.)
+#18 40.41 Preparing to unpack .../libssl3t64_3.5.7-1~deb13u2_amd64.deb ...
+#18 40.48 Unpacking libssl3t64:amd64 (3.5.7-1~deb13u2) over (3.5.6-1~deb13u2) ...
+#18 41.06 Setting up libssl3t64:amd64 (3.5.7-1~deb13u2) ...
+#18 41.21 Selecting previously unselected package bzip2.
+#18 41.21 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 5012 files and directories currently installed.)
+#18 41.24 Preparing to unpack .../00-bzip2_1.0.8-6_amd64.deb ...
+#18 41.24 Unpacking bzip2 (1.0.8-6) ...
+#18 41.33 Selecting previously unselected package openssl.
+#18 41.33 Preparing to unpack .../01-openssl_3.5.7-1~deb13u2_amd64.deb ...
+#18 41.34 Unpacking openssl (3.5.7-1~deb13u2) ...
+#18 41.59 Selecting previously unselected package ca-certificates.
+#18 41.59 Preparing to unpack .../02-ca-certificates_20250419_all.deb ...
+#18 41.60 Unpacking ca-certificates (20250419) ...
+#18 41.76 Selecting previously unselected package perl-modules-5.40.
+#18 41.77 Preparing to unpack .../03-perl-modules-5.40_5.40.1-6_all.deb ...
+#18 41.77 Unpacking perl-modules-5.40 (5.40.1-6) ...
+#18 42.80 Selecting previously unselected package libgdbm6t64:amd64.
+#18 42.80 Preparing to unpack .../04-libgdbm6t64_1.24-2_amd64.deb ...
+#18 42.81 Unpacking libgdbm6t64:amd64 (1.24-2) ...
+#18 42.88 Selecting previously unselected package libgdbm-compat4t64:amd64.
+#18 42.88 Preparing to unpack .../05-libgdbm-compat4t64_1.24-2_amd64.deb ...
+#18 42.89 Unpacking libgdbm-compat4t64:amd64 (1.24-2) ...
+#18 42.95 Selecting previously unselected package libperl5.40:amd64.
+#18 42.95 Preparing to unpack .../06-libperl5.40_5.40.1-6_amd64.deb ...
+#18 42.96 Unpacking libperl5.40:amd64 (5.40.1-6) ...
+#18 43.63 Selecting previously unselected package perl.
+#18 43.63 Preparing to unpack .../07-perl_5.40.1-6_amd64.deb ...
+#18 43.63 Unpacking perl (5.40.1-6) ...
+#18 43.73 Selecting previously unselected package xz-utils.
+#18 43.73 Preparing to unpack .../08-xz-utils_5.8.1-1+deb13u1_amd64.deb ...
+#18 43.74 Unpacking xz-utils (5.8.1-1+deb13u1) ...
+#18 43.93 Selecting previously unselected package libsframe1:amd64.
+#18 43.93 Preparing to unpack .../09-libsframe1_2.44-3_amd64.deb ...
+#18 43.94 Unpacking libsframe1:amd64 (2.44-3) ...
+#18 44.00 Selecting previously unselected package binutils-common:amd64.
+#18 44.00 Preparing to unpack .../10-binutils-common_2.44-3_amd64.deb ...
+#18 44.01 Unpacking binutils-common:amd64 (2.44-3) ...
+#18 44.30 Selecting previously unselected package libbinutils:amd64.
+#18 44.30 Preparing to unpack .../11-libbinutils_2.44-3_amd64.deb ...
+#18 44.31 Unpacking libbinutils:amd64 (2.44-3) ...
+#18 44.43 Selecting previously unselected package libgprofng0:amd64.
+#18 44.43 Preparing to unpack .../12-libgprofng0_2.44-3_amd64.deb ...
+#18 44.44 Unpacking libgprofng0:amd64 (2.44-3) ...
+#18 44.59 Selecting previously unselected package libctf-nobfd0:amd64.
+#18 44.59 Preparing to unpack .../13-libctf-nobfd0_2.44-3_amd64.deb ...
+#18 44.60 Unpacking libctf-nobfd0:amd64 (2.44-3) ...
+#18 44.68 Selecting previously unselected package libctf0:amd64.
+#18 44.68 Preparing to unpack .../14-libctf0_2.44-3_amd64.deb ...
+#18 44.69 Unpacking libctf0:amd64 (2.44-3) ...
+#18 44.76 Selecting previously unselected package libjansson4:amd64.
+#18 44.76 Preparing to unpack .../15-libjansson4_2.14-2+b3_amd64.deb ...
+#18 44.77 Unpacking libjansson4:amd64 (2.14-2+b3) ...
+#18 44.84 Selecting previously unselected package binutils-x86-64-linux-gnu.
+#18 44.84 Preparing to unpack .../16-binutils-x86-64-linux-gnu_2.44-3_amd64.deb ...
+#18 44.85 Unpacking binutils-x86-64-linux-gnu (2.44-3) ...
+#18 45.06 Selecting previously unselected package binutils.
+#18 45.07 Preparing to unpack .../17-binutils_2.44-3_amd64.deb ...
+#18 45.08 Unpacking binutils (2.44-3) ...
+#18 45.15 Selecting previously unselected package libc-dev-bin.
+#18 45.15 Preparing to unpack .../18-libc-dev-bin_2.41-12+deb13u3_amd64.deb ...
+#18 45.16 Unpacking libc-dev-bin (2.41-12+deb13u3) ...
+#18 45.22 Selecting previously unselected package linux-libc-dev.
+#18 45.23 Preparing to unpack .../19-linux-libc-dev_6.12.107-1_all.deb ...
+#18 45.23 Unpacking linux-libc-dev (6.12.107-1) ...
+#18 46.10 Selecting previously unselected package libcrypt-dev:amd64.
+#18 46.11 Preparing to unpack .../20-libcrypt-dev_1%3a4.4.38-1_amd64.deb ...
+#18 46.13 Unpacking libcrypt-dev:amd64 (1:4.4.38-1) ...
+#18 46.19 Selecting previously unselected package rpcsvc-proto.
+#18 46.20 Preparing to unpack .../21-rpcsvc-proto_1.4.3-1_amd64.deb ...
+#18 46.21 Unpacking rpcsvc-proto (1.4.3-1) ...
+#18 46.27 Selecting previously unselected package libc6-dev:amd64.
+#18 46.28 Preparing to unpack .../22-libc6-dev_2.41-12+deb13u3_amd64.deb ...
+#18 46.28 Unpacking libc6-dev:amd64 (2.41-12+deb13u3) ...
+#18 46.67 Selecting previously unselected package libisl23:amd64.
+#18 46.67 Preparing to unpack .../23-libisl23_0.27-1_amd64.deb ...
+#18 46.68 Unpacking libisl23:amd64 (0.27-1) ...
+#18 46.81 Selecting previously unselected package libmpfr6:amd64.
+#18 46.82 Preparing to unpack .../24-libmpfr6_4.2.2-1_amd64.deb ...
+#18 46.83 Unpacking libmpfr6:amd64 (4.2.2-1) ...
+#18 46.93 Selecting previously unselected package libmpc3:amd64.
+#18 46.93 Preparing to unpack .../25-libmpc3_1.3.1-1+b3_amd64.deb ...
+#18 46.94 Unpacking libmpc3:amd64 (1.3.1-1+b3) ...
+#18 47.01 Selecting previously unselected package cpp-14-x86-64-linux-gnu.
+#18 47.01 Preparing to unpack .../26-cpp-14-x86-64-linux-gnu_14.2.0-19_amd64.deb ...
+#18 47.02 Unpacking cpp-14-x86-64-linux-gnu (14.2.0-19) ...
+#18 48.08 Selecting previously unselected package cpp-14.
+#18 48.09 Preparing to unpack .../27-cpp-14_14.2.0-19_amd64.deb ...
+#18 48.09 Unpacking cpp-14 (14.2.0-19) ...
+#18 48.15 Selecting previously unselected package cpp-x86-64-linux-gnu.
+#18 48.15 Preparing to unpack .../28-cpp-x86-64-linux-gnu_4%3a14.2.0-1_amd64.deb ...
+#18 48.16 Unpacking cpp-x86-64-linux-gnu (4:14.2.0-1) ...
+#18 48.23 Selecting previously unselected package cpp.
+#18 48.24 Preparing to unpack .../29-cpp_4%3a14.2.0-1_amd64.deb ...
+#18 48.26 Unpacking cpp (4:14.2.0-1) ...
+#18 48.33 Selecting previously unselected package libcc1-0:amd64.
+#18 48.33 Preparing to unpack .../30-libcc1-0_14.2.0-19_amd64.deb ...
+#18 48.34 Unpacking libcc1-0:amd64 (14.2.0-19) ...
+#18 48.41 Selecting previously unselected package libgomp1:amd64.
+#18 48.42 Preparing to unpack .../31-libgomp1_14.2.0-19_amd64.deb ...
+#18 48.43 Unpacking libgomp1:amd64 (14.2.0-19) ...
+#18 48.52 Selecting previously unselected package libitm1:amd64.
+#18 48.53 Preparing to unpack .../32-libitm1_14.2.0-19_amd64.deb ...
+#18 48.54 Unpacking libitm1:amd64 (14.2.0-19) ...
+#18 48.61 Selecting previously unselected package libatomic1:amd64.
+#18 48.61 Preparing to unpack .../33-libatomic1_14.2.0-19_amd64.deb ...
+#18 48.62 Unpacking libatomic1:amd64 (14.2.0-19) ...
+#18 48.69 Selecting previously unselected package libasan8:amd64.
+#18 48.69 Preparing to unpack .../34-libasan8_14.2.0-19_amd64.deb ...
+#18 48.71 Unpacking libasan8:amd64 (14.2.0-19) ...
+#18 49.05 Selecting previously unselected package liblsan0:amd64.
+#18 49.05 Preparing to unpack .../35-liblsan0_14.2.0-19_amd64.deb ...
+#18 49.06 Unpacking liblsan0:amd64 (14.2.0-19) ...
+#18 49.24 Selecting previously unselected package libtsan2:amd64.
+#18 49.25 Preparing to unpack .../36-libtsan2_14.2.0-19_amd64.deb ...
+#18 49.25 Unpacking libtsan2:amd64 (14.2.0-19) ...
+#18 49.57 Selecting previously unselected package libubsan1:amd64.
+#18 49.58 Preparing to unpack .../37-libubsan1_14.2.0-19_amd64.deb ...
+#18 49.58 Unpacking libubsan1:amd64 (14.2.0-19) ...
+#18 49.76 Selecting previously unselected package libhwasan0:amd64.
+#18 49.76 Preparing to unpack .../38-libhwasan0_14.2.0-19_amd64.deb ...
+#18 49.77 Unpacking libhwasan0:amd64 (14.2.0-19) ...
+#18 50.00 Selecting previously unselected package libquadmath0:amd64.
+#18 50.01 Preparing to unpack .../39-libquadmath0_14.2.0-19_amd64.deb ...
+#18 50.01 Unpacking libquadmath0:amd64 (14.2.0-19) ...
+#18 50.08 Selecting previously unselected package libgcc-14-dev:amd64.
+#18 50.09 Preparing to unpack .../40-libgcc-14-dev_14.2.0-19_amd64.deb ...
+#18 50.10 Unpacking libgcc-14-dev:amd64 (14.2.0-19) ...
+#18 50.42 Selecting previously unselected package gcc-14-x86-64-linux-gnu.
+#18 50.43 Preparing to unpack .../41-gcc-14-x86-64-linux-gnu_14.2.0-19_amd64.deb ...
+#18 50.45 Unpacking gcc-14-x86-64-linux-gnu (14.2.0-19) ...
+#18 51.69 Selecting previously unselected package gcc-14.
+#18 51.69 Preparing to unpack .../42-gcc-14_14.2.0-19_amd64.deb ...
+#18 51.70 Unpacking gcc-14 (14.2.0-19) ...
+#18 51.78 Selecting previously unselected package gcc-x86-64-linux-gnu.
+#18 51.78 Preparing to unpack .../43-gcc-x86-64-linux-gnu_4%3a14.2.0-1_amd64.deb ...
+#18 51.79 Unpacking gcc-x86-64-linux-gnu (4:14.2.0-1) ...
+#18 51.86 Selecting previously unselected package gcc.
+#18 51.86 Preparing to unpack .../44-gcc_4%3a14.2.0-1_amd64.deb ...
+#18 51.87 Unpacking gcc (4:14.2.0-1) ...
+#18 51.94 Selecting previously unselected package libstdc++-14-dev:amd64.
+#18 51.94 Preparing to unpack .../45-libstdc++-14-dev_14.2.0-19_amd64.deb ...
+#18 51.95 Unpacking libstdc++-14-dev:amd64 (14.2.0-19) ...
+#18 52.46 Selecting previously unselected package g++-14-x86-64-linux-gnu.
+#18 52.47 Preparing to unpack .../46-g++-14-x86-64-linux-gnu_14.2.0-19_amd64.deb ...
+#18 52.47 Unpacking g++-14-x86-64-linux-gnu (14.2.0-19) ...
+#18 53.51 Selecting previously unselected package g++-14.
+#18 53.52 Preparing to unpack .../47-g++-14_14.2.0-19_amd64.deb ...
+#18 53.53 Unpacking g++-14 (14.2.0-19) ...
+#18 53.60 Selecting previously unselected package g++-x86-64-linux-gnu.
+#18 53.60 Preparing to unpack .../48-g++-x86-64-linux-gnu_4%3a14.2.0-1_amd64.deb ...
+#18 53.62 Unpacking g++-x86-64-linux-gnu (4:14.2.0-1) ...
+#18 53.71 Selecting previously unselected package g++.
+#18 53.71 Preparing to unpack .../49-g++_4%3a14.2.0-1_amd64.deb ...
+#18 53.72 Unpacking g++ (4:14.2.0-1) ...
+#18 53.79 Selecting previously unselected package make.
+#18 53.80 Preparing to unpack .../50-make_4.4.1-2_amd64.deb ...
+#18 53.80 Unpacking make (4.4.1-2) ...
+#18 53.92 Selecting previously unselected package libdpkg-perl.
+#18 53.92 Preparing to unpack .../51-libdpkg-perl_1.22.22_all.deb ...
+#18 53.93 Unpacking libdpkg-perl (1.22.22) ...
+#18 54.11 Selecting previously unselected package patch.
+#18 54.11 Preparing to unpack .../52-patch_2.8-2_amd64.deb ...
+#18 54.12 Unpacking patch (2.8-2) ...
+#18 54.20 Selecting previously unselected package dpkg-dev.
+#18 54.20 Preparing to unpack .../53-dpkg-dev_1.22.22_all.deb ...
+#18 54.21 Unpacking dpkg-dev (1.22.22) ...
+#18 54.43 Selecting previously unselected package build-essential.
+#18 54.44 Preparing to unpack .../54-build-essential_12.12_amd64.deb ...
+#18 54.44 Unpacking build-essential (12.12) ...
+#18 54.52 Selecting previously unselected package libbrotli1:amd64.
+#18 54.52 Preparing to unpack .../55-libbrotli1_1.1.0-2+b7_amd64.deb ...
+#18 54.53 Unpacking libbrotli1:amd64 (1.1.0-2+b7) ...
+#18 54.63 Selecting previously unselected package libffi8:amd64.
+#18 54.64 Preparing to unpack .../56-libffi8_3.4.8-2_amd64.deb ...
+#18 54.65 Unpacking libffi8:amd64 (3.4.8-2) ...
+#18 54.72 Selecting previously unselected package libp11-kit0:amd64.
+#18 54.73 Preparing to unpack .../57-libp11-kit0_0.25.5-3_amd64.deb ...
+#18 54.73 Unpacking libp11-kit0:amd64 (0.25.5-3) ...
+#18 54.84 Selecting previously unselected package libtasn1-6:amd64.
+#18 54.85 Preparing to unpack .../58-libtasn1-6_4.20.0-2+deb13u1_amd64.deb ...
+#18 54.85 Unpacking libtasn1-6:amd64 (4.20.0-2+deb13u1) ...
+#18 54.93 Selecting previously unselected package libgnutls30t64:amd64.
+#18 54.93 Preparing to unpack .../59-libgnutls30t64_3.8.9-3+deb13u4_amd64.deb ...
+#18 54.94 Unpacking libgnutls30t64:amd64 (3.8.9-3+deb13u4) ...
+#18 55.10 Selecting previously unselected package libkrb5support0:amd64.
+#18 55.11 Preparing to unpack .../60-libkrb5support0_1.21.3-5+deb13u1_amd64.deb ...
+#18 55.12 Unpacking libkrb5support0:amd64 (1.21.3-5+deb13u1) ...
+#18 55.18 Selecting previously unselected package libcom-err2:amd64.
+#18 55.19 Preparing to unpack .../61-libcom-err2_1.47.2-3+b11_amd64.deb ...
+#18 55.19 Unpacking libcom-err2:amd64 (1.47.2-3+b11) ...
+#18 55.26 Selecting previously unselected package libk5crypto3:amd64.
+#18 55.26 Preparing to unpack .../62-libk5crypto3_1.21.3-5+deb13u1_amd64.deb ...
+#18 55.27 Unpacking libk5crypto3:amd64 (1.21.3-5+deb13u1) ...
+#18 55.34 Selecting previously unselected package libkeyutils1:amd64.
+#18 55.35 Preparing to unpack .../63-libkeyutils1_1.6.3-6_amd64.deb ...
+#18 55.36 Unpacking libkeyutils1:amd64 (1.6.3-6) ...
+#18 55.44 Selecting previously unselected package libkrb5-3:amd64.
+#18 55.44 Preparing to unpack .../64-libkrb5-3_1.21.3-5+deb13u1_amd64.deb ...
+#18 55.45 Unpacking libkrb5-3:amd64 (1.21.3-5+deb13u1) ...
+#18 55.57 Selecting previously unselected package libgssapi-krb5-2:amd64.
+#18 55.57 Preparing to unpack .../65-libgssapi-krb5-2_1.21.3-5+deb13u1_amd64.deb ...
+#18 55.58 Unpacking libgssapi-krb5-2:amd64 (1.21.3-5+deb13u1) ...
+#18 55.67 Selecting previously unselected package libsasl2-modules-db:amd64.
+#18 55.68 Preparing to unpack .../66-libsasl2-modules-db_2.1.28+dfsg1-9_amd64.deb ...
+#18 55.68 Unpacking libsasl2-modules-db:amd64 (2.1.28+dfsg1-9) ...
+#18 55.76 Selecting previously unselected package libsasl2-2:amd64.
+#18 55.76 Preparing to unpack .../67-libsasl2-2_2.1.28+dfsg1-9_amd64.deb ...
+#18 55.77 Unpacking libsasl2-2:amd64 (2.1.28+dfsg1-9) ...
+#18 55.84 Selecting previously unselected package libldap2:amd64.
+#18 55.85 Preparing to unpack .../68-libldap2_2.6.10+dfsg-1_amd64.deb ...
+#18 55.86 Unpacking libldap2:amd64 (2.6.10+dfsg-1) ...
+#18 55.94 Selecting previously unselected package libnghttp2-14:amd64.
+#18 55.95 Preparing to unpack .../69-libnghttp2-14_1.64.0-1.1+deb13u1_amd64.deb ...
+#18 55.95 Unpacking libnghttp2-14:amd64 (1.64.0-1.1+deb13u1) ...
+#18 56.03 Selecting previously unselected package libnghttp3-9:amd64.
+#18 56.03 Preparing to unpack .../70-libnghttp3-9_1.8.0-1_amd64.deb ...
+#18 56.04 Unpacking libnghttp3-9:amd64 (1.8.0-1) ...
+#18 56.11 Selecting previously unselected package libngtcp2-16:amd64.
+#18 56.11 Preparing to unpack .../71-libngtcp2-16_1.11.0-1+deb13u1_amd64.deb ...
+#18 56.12 Unpacking libngtcp2-16:amd64 (1.11.0-1+deb13u1) ...
+#18 56.19 Selecting previously unselected package libngtcp2-crypto-gnutls8:amd64.
+#18 56.20 Preparing to unpack .../72-libngtcp2-crypto-gnutls8_1.11.0-1+deb13u1_amd64.deb ...
+#18 56.21 Unpacking libngtcp2-crypto-gnutls8:amd64 (1.11.0-1+deb13u1) ...
+#18 56.27 Selecting previously unselected package libpsl5t64:amd64.
+#18 56.28 Preparing to unpack .../73-libpsl5t64_0.21.2-1.1+b1_amd64.deb ...
+#18 56.28 Unpacking libpsl5t64:amd64 (0.21.2-1.1+b1) ...
+#18 56.35 Selecting previously unselected package librtmp1:amd64.
+#18 56.36 Preparing to unpack .../74-librtmp1_2.4+20151223.gitfa8646d.1-2+b5_amd64.deb ...
+#18 56.36 Unpacking librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b5) ...
+#18 56.43 Selecting previously unselected package libssh2-1t64:amd64.
+#18 56.44 Preparing to unpack .../75-libssh2-1t64_1.11.1-1+deb13u1_amd64.deb ...
+#18 56.44 Unpacking libssh2-1t64:amd64 (1.11.1-1+deb13u1) ...
+#18 56.52 Selecting previously unselected package libcurl3t64-gnutls:amd64.
+#18 56.53 Preparing to unpack .../76-libcurl3t64-gnutls_8.14.1-2+deb13u4_amd64.deb ...
+#18 56.54 Unpacking libcurl3t64-gnutls:amd64 (8.14.1-2+deb13u4) ...
+#18 56.63 Selecting previously unselected package liberror-perl.
+#18 56.63 Preparing to unpack .../77-liberror-perl_0.17030-1_all.deb ...
+#18 56.64 Unpacking liberror-perl (0.17030-1) ...
+#18 56.71 Selecting previously unselected package git-man.
+#18 56.71 Preparing to unpack .../78-git-man_1%3a2.47.3-0+deb13u1_all.deb ...
+#18 56.72 Unpacking git-man (1:2.47.3-0+deb13u1) ...
+#18 56.91 Selecting previously unselected package git.
+#18 56.91 Preparing to unpack .../79-git_1%3a2.47.3-0+deb13u1_amd64.deb ...
+#18 56.94 Unpacking git (1:2.47.3-0+deb13u1) ...
+#18 57.93 Setting up libexpat1:amd64 (2.8.3-1~deb13u1) ...
+#18 57.96 Setting up libkeyutils1:amd64 (1.6.3-6) ...
+#18 57.97 Setting up libgdbm6t64:amd64 (1.24-2) ...
+#18 57.99 Setting up libgdbm-compat4t64:amd64 (1.24-2) ...
+#18 58.01 Setting up libbrotli1:amd64 (1.1.0-2+b7) ...
+#18 58.03 Setting up binutils-common:amd64 (2.44-3) ...
+#18 58.04 Setting up libpsl5t64:amd64 (0.21.2-1.1+b1) ...
+#18 58.06 Setting up libnghttp2-14:amd64 (1.64.0-1.1+deb13u1) ...
+#18 58.08 Setting up linux-libc-dev (6.12.107-1) ...
+#18 58.09 Setting up libctf-nobfd0:amd64 (2.44-3) ...
+#18 58.11 Setting up libcom-err2:amd64 (1.47.2-3+b11) ...
+#18 58.13 Setting up libgomp1:amd64 (14.2.0-19) ...
+#18 58.15 Setting up bzip2 (1.0.8-6) ...
+#18 58.16 Setting up libsframe1:amd64 (2.44-3) ...
+#18 58.18 Setting up libjansson4:amd64 (2.14-2+b3) ...
+#18 58.20 Setting up libkrb5support0:amd64 (1.21.3-5+deb13u1) ...
+#18 58.21 Setting up libsasl2-modules-db:amd64 (2.1.28+dfsg1-9) ...
+#18 58.23 Setting up rpcsvc-proto (1.4.3-1) ...
+#18 58.25 Setting up make (4.4.1-2) ...
+#18 58.27 Setting up libmpfr6:amd64 (4.2.2-1) ...
+#18 58.29 Setting up xz-utils (5.8.1-1+deb13u1) ...
+#18 58.31 update-alternatives: using /usr/bin/xz to provide /usr/bin/lzma (lzma) in auto mode
+#18 58.33 Setting up libquadmath0:amd64 (14.2.0-19) ...
+#18 58.35 Setting up libmpc3:amd64 (1.3.1-1+b3) ...
+#18 58.36 Setting up libatomic1:amd64 (14.2.0-19) ...
+#18 58.38 Setting up patch (2.8-2) ...
+#18 58.40 Setting up libk5crypto3:amd64 (1.21.3-5+deb13u1) ...
+#18 58.41 Setting up libsasl2-2:amd64 (2.1.28+dfsg1-9) ...
+#18 58.43 Setting up libnghttp3-9:amd64 (1.8.0-1) ...
+#18 58.45 Setting up libubsan1:amd64 (14.2.0-19) ...
+#18 58.46 Setting up libffi8:amd64 (3.4.8-2) ...
+#18 58.48 Setting up perl-modules-5.40 (5.40.1-6) ...
+#18 58.50 Setting up libhwasan0:amd64 (14.2.0-19) ...
+#18 58.52 Setting up libcrypt-dev:amd64 (1:4.4.38-1) ...
+#18 58.55 Setting up libasan8:amd64 (14.2.0-19) ...
+#18 58.57 Setting up libtasn1-6:amd64 (4.20.0-2+deb13u1) ...
+#18 58.59 Setting up git-man (1:2.47.3-0+deb13u1) ...
+#18 58.61 Setting up libngtcp2-16:amd64 (1.11.0-1+deb13u1) ...
+#18 58.62 Setting up libkrb5-3:amd64 (1.21.3-5+deb13u1) ...
+#18 58.65 Setting up libssh2-1t64:amd64 (1.11.1-1+deb13u1) ...
+#18 58.67 Setting up libtsan2:amd64 (14.2.0-19) ...
+#18 58.69 Setting up libbinutils:amd64 (2.44-3) ...
+#18 58.71 Setting up libisl23:amd64 (0.27-1) ...
+#18 58.73 Setting up libc-dev-bin (2.41-12+deb13u3) ...
+#18 58.77 Setting up openssl (3.5.7-1~deb13u2) ...
+#18 58.78 Setting up libcc1-0:amd64 (14.2.0-19) ...
+#18 58.80 Setting up libldap2:amd64 (2.6.10+dfsg-1) ...
+#18 58.81 Setting up liblsan0:amd64 (14.2.0-19) ...
+#18 58.83 Setting up libitm1:amd64 (14.2.0-19) ...
+#18 58.85 Setting up libctf0:amd64 (2.44-3) ...
+#18 58.87 Setting up libperl5.40:amd64 (5.40.1-6) ...
+#18 58.88 Setting up ca-certificates (20250419) ...
+#18 60.46 Updating certificates in /etc/ssl/certs...
+#18 62.67 150 added, 0 removed; done.
+#18 62.72 Setting up perl (5.40.1-6) ...
+#18 62.75 Setting up libgprofng0:amd64 (2.44-3) ...
+#18 62.77 Setting up libp11-kit0:amd64 (0.25.5-3) ...
+#18 62.78 Setting up libgssapi-krb5-2:amd64 (1.21.3-5+deb13u1) ...
+#18 62.80 Setting up cpp-14-x86-64-linux-gnu (14.2.0-19) ...
+#18 62.82 Setting up libdpkg-perl (1.22.22) ...
+#18 62.83 Setting up cpp-14 (14.2.0-19) ...
+#18 62.85 Setting up libc6-dev:amd64 (2.41-12+deb13u3) ...
+#18 62.87 Setting up libgcc-14-dev:amd64 (14.2.0-19) ...
+#18 62.89 Setting up libstdc++-14-dev:amd64 (14.2.0-19) ...
+#18 62.90 Setting up binutils-x86-64-linux-gnu (2.44-3) ...
+#18 62.92 Setting up cpp-x86-64-linux-gnu (4:14.2.0-1) ...
+#18 62.93 Setting up libgnutls30t64:amd64 (3.8.9-3+deb13u4) ...
+#18 62.95 Setting up binutils (2.44-3) ...
+#18 62.97 Setting up dpkg-dev (1.22.22) ...
+#18 63.00 Setting up liberror-perl (0.17030-1) ...
+#18 63.01 Setting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b5) ...
+#18 63.03 Setting up cpp (4:14.2.0-1) ...
+#18 63.06 Setting up gcc-14-x86-64-linux-gnu (14.2.0-19) ...
+#18 63.08 Setting up libngtcp2-crypto-gnutls8:amd64 (1.11.0-1+deb13u1) ...
+#18 63.09 Setting up gcc-x86-64-linux-gnu (4:14.2.0-1) ...
+#18 63.11 Setting up libcurl3t64-gnutls:amd64 (8.14.1-2+deb13u4) ...
+#18 63.13 Setting up gcc-14 (14.2.0-19) ...
+#18 63.14 Setting up git (1:2.47.3-0+deb13u1) ...
+#18 63.18 Setting up g++-14-x86-64-linux-gnu (14.2.0-19) ...
+#18 63.20 Setting up g++-x86-64-linux-gnu (4:14.2.0-1) ...
+#18 63.22 Setting up g++-14 (14.2.0-19) ...
+#18 63.24 Setting up gcc (4:14.2.0-1) ...
+#18 63.28 Setting up g++ (4:14.2.0-1) ...
+#18 63.30 update-alternatives: using /usr/bin/g++ to provide /usr/bin/c++ (c++) in auto mode
+#18 63.31 Setting up build-essential (12.12) ...
+#18 63.33 Processing triggers for libc-bin (2.41-12+deb13u3) ...
+#18 63.40 Processing triggers for ca-certificates (20250419) ...
+#18 63.41 Updating certificates in /etc/ssl/certs...
+#18 65.55 0 added, 0 removed; done.
+#18 65.55 Running hooks in /etc/ca-certificates/update.d...
+#18 65.56 done.
+#18 DONE 66.0s
+
+#19 [migrate builder  4/13] RUN --network=host mix local.hex --force && mix local.rebar --force
+#19 4.673 * creating /root/.mix/archives/hex-2.5.1
+#19 7.587 * creating /root/.mix/elixir/1-20-otp-28/rebar3
+#19 DONE 7.7s
+
+#16 [app assets_deps 1/4] FROM docker.io/library/node:26.8.1-slim@sha256:c0753125a3789977aefe869cbebccf70e3cfd7ea84ca48547458f02e4f1d7146
+#16 resolve docker.io/library/node:26.8.1-slim@sha256:c0753125a3789977aefe869cbebccf70e3cfd7ea84ca48547458f02e4f1d7146 0.1s done
+#16 DONE 0.1s
+
+#12 [app app 1/4] FROM docker.io/library/debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132
+#12 resolve docker.io/library/debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132 0.1s done
+#12 DONE 0.1s
+
+#13 [app builder  1/13] FROM docker.io/library/elixir:1.20.2-otp-28-slim@sha256:274bde8ed2003aa8ec03fe0b1796d40d4099c16dc9a20d5eae0f12bb22443225
+#13 resolve docker.io/library/elixir:1.20.2-otp-28-slim@sha256:274bde8ed2003aa8ec03fe0b1796d40d4099c16dc9a20d5eae0f12bb22443225 0.1s done
+#13 DONE 0.1s
+
+#17 [app builder  2/13] WORKDIR /app
+#17 CACHED
+
+#14 [app app 2/4] WORKDIR /app
+#14 CACHED
+
+#15 [app app 3/4] RUN for file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do     if [ -f "${file}" ] && [ -n "" ]; then       sed -i         -e "s|http://deb.debian.org/debian-security||g"         -e "s|https://deb.debian.org/debian-security||g"         -e "s|http://security.debian.org/debian-security||g"         -e "s|https://security.debian.org/debian-security||g"         "${file}";     fi;     if [ -f "${file}" ] && [ -n "" ]; then       sed -i         -e "s|http://deb.debian.org/debian||g"         -e "s|https://deb.debian.org/debian||g"         "${file}";     fi;   done   && apt-get update   && apt-get install -y --no-install-recommends ca-certificates libncurses6 libstdc++6 openssl tzdata   && rm -rf /var/lib/apt/lists/*   && groupadd --system codex_pooler   && useradd --system --gid codex_pooler --home-dir /app --shell /usr/sbin/nologin codex_pooler
+#15 DONE 33.9s
+
+#18 [app builder  3/13] RUN for file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do     if [ -f "${file}" ] && [ -n "" ]; then       sed -i         -e "s|http://deb.debian.org/debian-security||g"         -e "s|https://deb.debian.org/debian-security||g"         -e "s|http://security.debian.org/debian-security||g"         -e "s|https://security.debian.org/debian-security||g"         "${file}";     fi;     if [ -f "${file}" ] && [ -n "" ]; then       sed -i         -e "s|http://deb.debian.org/debian||g"         -e "s|https://deb.debian.org/debian||g"         "${file}";     fi;   done   && apt-get update   && apt-get install -y --no-install-recommends build-essential ca-certificates git   && rm -rf /var/lib/apt/lists/*
+#18 DONE 66.0s
+
+#19 [app builder  4/13] RUN --network=host mix local.hex --force && mix local.rebar --force
+#19 DONE 7.7s
+
+#20 [migrate internal] load build context
+#20 transferring context: 12.55MB 4.8s
+#20 transferring context: 15.10MB 5.9s done
+#20 DONE 6.0s
+
+#21 [app internal] load build context
+#21 ...
+
+#22 [migrate assets_deps 2/4] WORKDIR /app
+#22 CACHED
+
+#23 [migrate assets_deps 3/4] COPY assets/package.json assets/package-lock.json ./assets/
+#23 CACHED
+
+#24 [migrate assets_deps 4/4] RUN --network=host npm ci --prefix assets
+#24 5.095 
+#24 5.095 added 7 packages, and audited 8 packages in 4s
+#24 5.095 
+#24 5.095 1 package is looking for funding
+#24 5.096   run `npm fund` for details
+#24 5.101 
+#24 5.101 found 0 vulnerabilities
+#24 DONE 5.6s
+
+#25 [migrate builder  5/13] COPY mix.exs mix.lock ./
+#25 DONE 0.1s
+
+#26 [migrate builder  6/13] COPY config config
+#26 DONE 0.1s
+
+#21 [app internal] load build context
+#21 ...
+
+#27 [migrate builder  7/13] RUN --network=host mix deps.get --only prod && mix deps.compile
+#27 2.182 * Getting heroicons (https://github.com/tailwindlabs/heroicons.git - v2.2.0)
+#27 13.40 remote: Enumerating objects: 9314, done.        
+#27 13.40 remote: Counting objects:   0% (1/9314)        remote: Counting objects:   1% (94/9314)        remote: Counting objects:   2% (187/9314)        remote: Counting objects:   3% (280/9314)        remote: Counting objects:   4% (373/9314)        remote: Counting objects:   5% (466/9314)        remote: Counting objects:   6% (559/9314)        remote: Counting objects:   7% (652/9314)        remote: Counting objects:   8% (746/9314)        remote: Counting objects:   9% (839/9314)        remote: Counting objects:  10% (932/9314)        remote: Counting objects:  11% (1025/9314)        remote: Counting objects:  12% (1118/9314)        remote: Counting objects:  13% (1211/9314)        remote: Counting objects:  14% (1304/9314)        remote: Counting objects:  15% (1398/9314)        remote: Counting objects:  16% (1491/9314)        remote: Counting objects:  17% (1584/9314)        remote: Counting objects:  18% (1677/9314)        remote: Counting objects:  19% (1770/9314)        remote: Counting objects:  20% (1863/9314)        remote: Counting objects:  21% (1956/9314)        remote: Counting objects:  22% (2050/9314)        remote: Counting objects:  23% (2143/9314)        remote: Counting objects:  24% (2236/9314)        remote: Counting objects:  25% (2329/9314)        remote: Counting objects:  26% (2422/9314)        remote: Counting objects:  27% (2515/9314)        remote: Counting objects:  28% (2608/9314)        remote: Counting objects:  29% (2702/9314)        remote: Counting objects:  30% (2795/9314)        remote: Counting objects:  31% (2888/9314)        remote: Counting objects:  32% (2981/9314)        remote: Counting objects:  33% (3074/9314)        remote: Counting objects:  34% (3167/9314)        remote: Counting objects:  35% (3260/9314)        remote: Counting objects:  36% (3354/9314)        remote: Counting objects:  37% (3447/9314)        remote: Counting objects:  38% (3540/9314)        remote: Counting objects:  39% (3633/9314)        remote: Counting objects:  40% (3726/9314)        remote: Counting objects:  41% (3819/9314)        remote: Counting objects:  42% (3912/9314)        remote: Counting objects:  43% (4006/9314)        remote: Counting objects:  44% (4099/9314)        remote: Counting objects:  45% (4192/9314)        remote: Counting objects:  46% (4285/9314)        remote: Counting objects:  47% (4378/9314)        remote: Counting objects:  48% (4471/9314)        remote: Counting objects:  49% (4564/9314)        remote: Counting objects:  50% (4657/9314)        remote: Counting objects:  51% (4751/9314)        remote: Counting objects:  52% (4844/9314)        remote: Counting objects:  53% (4937/9314)        remote: Counting objects:  54% (5030/9314)        remote: Counting objects:  55% (5123/9314)        remote: Counting objects:  56% (5216/9314)        remote: Counting objects:  57% (5309/9314)        remote: Counting objects:  58% (5403/9314)        remote: Counting objects:  59% (5496/9314)        remote: Counting objects:  60% (5589/9314)        remote: Counting objects:  61% (5682/9314)        remote: Counting objects:  62% (5775/9314)        remote: Counting objects:  63% (5868/9314)        remote: Counting objects:  64% (5961/9314)        remote: Counting objects:  65% (6055/9314)        remote: Counting objects:  66% (6148/9314)        remote: Counting objects:  67% (6241/9314)        remote: Counting objects:  68% (6334/9314)        remote: Counting objects:  69% (6427/9314)        remote: Counting objects:  70% (6520/9314)        remote: Counting objects:  71% (6613/9314)        remote: Counting objects:  72% (6707/9314)        remote: Counting objects:  73% (6800/9314)        remote: Counting objects:  74% (6893/9314)        remote: Counting objects:  75% (6986/9314)        remote: Counting objects:  76% (7079/9314)        remote: Counting objects:  77% (7172/9314)        remote: Counting objects:  78% (7265/9314)        remote: Counting objects:  79% (7359/9314)        remote: Counting objects:  80% (7452/9314)        remote: Counting objects:  81% (7545/9314)        remote: Counting objects:  82% (7638/9314)        remote: Counting objects:  83% (7731/9314)        remote: Counting objects:  84% (7824/9314)        remote: Counting objects:  85% (7917/9314)        remote: Counting objects:  86% (8011/9314)        remote: Counting objects:  87% (8104/9314)        remote: Counting objects:  88% (8197/9314)        remote: Counting objects:  89% (8290/9314)        remote: Counting objects:  90% (8383/9314)        remote: Counting objects:  91% (8476/9314)        remote: Counting objects:  92% (8569/9314)        remote: Counting objects:  93% (8663/9314)        remote: Counting objects:  94% (8756/9314)        remote: Counting objects:  95% (8849/9314)        remote: Counting objects:  96% (8942/9314)        remote: Counting objects:  97% (9035/9314)        remote: Counting objects:  98% (9128/9314)        remote: Counting objects:  99% (9221/9314)        remote: Counting objects: 100% (9314/9314)        remote: Counting objects: 100% (9314/9314), done.        
+#27 13.40 remote: Compressing objects:   0% (1/5403)        remote: Compressing objects:   1% (55/5403)        remote: Compressing objects:   2% (109/5403)        remote: Compressing objects:   3% (163/5403)        remote: Compressing objects:   4% (217/5403)        remote: Compressing objects:   5% (271/5403)        remote: Compressing objects:   6% (325/5403)        remote: Compressing objects:   7% (379/5403)        remote: Compressing objects:   8% (433/5403)        remote: Compressing objects:   9% (487/5403)        remote: Compressing objects:  10% (541/5403)        remote: Compressing objects:  11% (595/5403)        remote: Compressing objects:  12% (649/5403)        remote: Compressing objects:  13% (703/5403)        remote: Compressing objects:  14% (757/5403)        remote: Compressing objects:  15% (811/5403)        remote: Compressing objects:  16% (865/5403)        remote: Compressing objects:  17% (919/5403)        remote: Compressing objects:  18% (973/5403)        remote: Compressing objects:  19% (1027/5403)        remote: Compressing objects:  20% (1081/5403)        remote: Compressing objects:  21% (1135/5403)        remote: Compressing objects:  22% (1189/5403)        remote: Compressing objects:  23% (1243/5403)        remote: Compressing objects:  24% (1297/5403)        remote: Compressing objects:  25% (1351/5403)        remote: Compressing objects:  26% (1405/5403)        remote: Compressing objects:  27% (1459/5403)        remote: Compressing objects:  28% (1513/5403)        remote: Compressing objects:  29% (1567/5403)        remote: Compressing objects:  30% (1621/5403)        remote: Compressing objects:  31% (1675/5403)        remote: Compressing objects:  32% (1729/5403)        remote: Compressing objects:  33% (1783/5403)        remote: Compressing objects:  34% (1838/5403)        remote: Compressing objects:  35% (1892/5403)        remote: Compressing objects:  36% (1946/5403)        remote: Compressing objects:  37% (2000/5403)        remote: Compressing objects:  38% (2054/5403)        remote: Compressing objects:  39% (2108/5403)        remote: Compressing objects:  40% (2162/5403)        remote: Compressing objects:  41% (2216/5403)        remote: Compressing objects:  42% (2270/5403)        remote: Compressing objects:  43% (2324/5403)        remote: Compressing objects:  44% (2378/5403)        remote: Compressing objects:  45% (2432/5403)        remote: Compressing objects:  46% (2486/5403)        remote: Compressing objects:  47% (2540/5403)        remote: Compressing objects:  48% (2594/5403)        remote: Compressing objects:  49% (2648/5403)        remote: Compressing objects:  50% (2702/5403)        remote: Compressing objects:  51% (2756/5403)        remote: Compressing objects:  52% (2810/5403)        remote: Compressing objects:  53% (2864/5403)        remote: Compressing objects:  54% (2918/5403)        remote: Compressing objects:  55% (2972/5403)        remote: Compressing objects:  56% (3026/5403)        remote: Compressing objects:  57% (3080/5403)        remote: Compressing objects:  58% (3134/5403)        remote: Compressing objects:  59% (3188/5403)        remote: Compressing objects:  60% (3242/5403)        remote: Compressing objects:  61% (3296/5403)        remote: Compressing objects:  62% (3350/5403)        remote: Compressing objects:  63% (3404/5403)        remote: Compressing objects:  64% (3458/5403)        remote: Compressing objects:  65% (3512/5403)        remote: Compressing objects:  66% (3566/5403)        remote: Compressing objects:  67% (3621/5403)        remote: Compressing objects:  68% (3675/5403)        remote: Compressing objects:  69% (3729/5403)        remote: Compressing objects:  70% (3783/5403)        remote: Compressing objects:  71% (3837/5403)        remote: Compressing objects:  72% (3891/5403)        remote: Compressing objects:  73% (3945/5403)        remote: Compressing objects:  74% (3999/5403)        remote: Compressing objects:  75% (4053/5403)        remote: Compressing objects:  76% (4107/5403)        remote: Compressing objects:  77% (4161/5403)        remote: Compressing objects:  78% (4215/5403)        remote: Compressing objects:  79% (4269/5403)        remote: Compressing objects:  80% (4323/5403)        remote: Compressing objects:  81% (4377/5403)        remote: Compressing objects:  82% (4431/5403)        remote: Compressing objects:  83% (4485/5403)        remote: Compressing objects:  84% (4539/5403)        remote: Compressing objects:  85% (4593/5403)        remote: Compressing objects:  86% (4647/5403)        remote: Compressing objects:  87% (4701/5403)        remote: Compressing objects:  88% (4755/5403)        remote: Compressing objects:  89% (4809/5403)        remote: Compressing objects:  90% (4863/5403)        remote: Compressing objects:  91% (4917/5403)        remote: Compressing objects:  92% (4971/5403)        remote: Compressing objects:  93% (5025/5403)        remote: Compressing objects:  94% (5079/5403)        remote: Compressing objects:  95% (5133/5403)        remote: Compressing objects:  96% (5187/5403)        remote: Compressing objects:  97% (5241/5403)        remote: Compressing objects:  98% (5295/5403)        remote: Compressing objects:  99% (5349/5403)        remote: Compressing objects: 100% (5403/5403)        remote: Compressing objects: 100% (5403/5403), done.        
+#27 13.87 remote: Total 9314 (delta 4193), reused 8343 (delta 3849), pack-reused 0 (from 0)        
+#27 16.22 Resolving Hex dependencies...
+#27 17.02 Resolution completed in 0.791s
+#27 17.17 Unchanged:
+#27 17.17   argon2_elixir 4.1.3
+#27 17.17   bandit 1.12.5
+#27 17.17   comeonin 5.5.1
+#27 17.17   db_connection 2.10.2
+#27 17.17   decimal 3.1.1
+#27 17.17   dns_cluster 0.3.0
+#27 17.17   ecto 3.14.2
+#27 17.17   ecto_sql 3.14.0
+#27 17.17   elixir_make 0.10.0
+#27 17.17   esbuild 0.10.0
+#27 17.17   expo 1.1.1
+#27 17.17   finch 0.23.0
+#27 17.17   gen_smtp 1.3.0
+#27 17.18   gettext 1.0.2
+#27 17.18   hpax 1.0.4
+#27 17.18   idna 7.1.0
+#27 17.18   jason 1.4.5
+#27 17.18   mime 2.0.7
+#27 17.18   mint 1.10.0
+#27 17.18   mint_web_socket 1.0.6
+#27 17.18   nimble_options 1.1.1
+#27 17.18   nimble_pool 1.1.0
+#27 17.18   oban 2.24.1
+#27 17.18   phoenix 1.8.13
+#27 17.18   phoenix_ecto 4.7.0
+#27 17.18   phoenix_html 4.3.0
+#27 17.18   phoenix_live_view 1.2.11
+#27 17.18   phoenix_pubsub 2.3.0
+#27 17.18   phoenix_template 1.0.4
+#27 17.18   plug 1.20.3
+#27 17.18   plug_crypto 2.2.0
+#27 17.18   postgrex 0.22.4
+#27 17.18   ranch 2.2.1
+#27 17.18   req 0.7.4
+#27 17.18   swoosh 1.28.0
+#27 17.18   tailwind 0.5.1
+#27 17.18   telemetry 1.4.2
+#27 17.18   telemetry_metrics 1.2.0
+#27 17.18   telemetry_metrics_prometheus_core 1.2.1
+#27 17.18   telemetry_poller 1.3.0
+#27 17.18   thousand_island 1.5.0
+#27 17.18   websock 0.5.3
+#27 17.18   websock_adapter 0.6.0
+#27 17.18   zoneinfo 0.1.9
+#27 17.21 * Getting argon2_elixir (Hex package)
+#27 21.31 * Getting phoenix (Hex package)
+#27 22.03 * Getting phoenix_ecto (Hex package)
+#27 22.07 * Getting ecto_sql (Hex package)
+#27 22.15 * Getting postgrex (Hex package)
+#27 22.23 * Getting phoenix_html (Hex package)
+#27 22.25 * Getting phoenix_live_view (Hex package)
+#27 22.47 * Getting oban (Hex package)
+#27 22.62 * Getting esbuild (Hex package)
+#27 22.66 * Getting tailwind (Hex package)
+#27 22.69 * Getting swoosh (Hex package)
+#27 22.84 * Getting gen_smtp (Hex package)
+#27 22.89 * Getting req (Hex package)
+#27 22.94 * Getting finch (Hex package)
+#27 22.98 * Getting mint (Hex package)
+#27 23.04 * Getting mint_web_socket (Hex package)
+#27 23.07 * Getting telemetry_metrics (Hex package)
+#27 23.10 * Getting telemetry_metrics_prometheus_core (Hex package)
+#27 23.13 * Getting telemetry_poller (Hex package)
+#27 23.16 * Getting zoneinfo (Hex package)
+#27 23.19 * Getting gettext (Hex package)
+#27 23.23 * Getting jason (Hex package)
+#27 23.25 * Getting dns_cluster (Hex package)
+#27 23.27 * Getting websock (Hex package)
+#27 23.29 * Getting websock_adapter (Hex package)
+#27 23.31 * Getting bandit (Hex package)
+#27 23.42 * Getting hpax (Hex package)
+#27 23.45 * Getting plug (Hex package)
+#27 23.52 * Getting telemetry (Hex package)
+#27 23.55 * Getting thousand_island (Hex package)
+#27 23.58 * Getting mime (Hex package)
+#27 23.60 * Getting plug_crypto (Hex package)
+#27 23.63 * Getting expo (Hex package)
+#27 23.70 * Getting nimble_options (Hex package)
+#27 23.73 * Getting nimble_pool (Hex package)
+#27 23.75 * Getting ranch (Hex package)
+#27 23.79 * Getting idna (Hex package)
+#27 23.83 * Getting phoenix_template (Hex package)
+#27 23.85 * Getting db_connection (Hex package)
+#27 23.89 * Getting decimal (Hex package)
+#27 23.91 * Getting ecto (Hex package)
+#27 24.01 * Getting phoenix_pubsub (Hex package)
+#27 24.05 * Getting comeonin (Hex package)
+#27 24.06 * Getting elixir_make (Hex package)
+#27 24.09 You have added/upgraded packages you could sponsor, run `mix hex.sponsor` to learn more
+#27 26.62 ==> mime
+#27 26.63 Compiling 1 file (.ex)
+#27 26.95 Generated mime app
+#27 27.02 ==> nimble_options
+#27 27.02 Compiling 3 files (.ex)
+#27 27.82 Generated nimble_options app
+#27 27.87 ==> comeonin
+#27 27.87 Compiling 3 files (.ex)
+#27 27.93 Generated comeonin app
+#27 27.98 ==> plug_crypto
+#27 27.98 Compiling 5 files (.ex)
+#27 28.21 Generated plug_crypto app
+#27 28.26 ==> hpax
+#27 28.26 Compiling 4 files (.ex)
+#27 29.42 Generated hpax app
+#27 29.54 ==> mint
+#27 29.54 Compiling 1 file (.erl)
+#27 29.74 Compiling 20 files (.ex)
+#27 32.23 Generated mint app
+#27 32.29 ==> mint_web_socket
+#27 32.29 Compiling 7 files (.ex)
+#27 32.97 Generated mint_web_socket app
+#27 34.37 ==> codex_pooler
+#27 34.37 ===> Analyzing applications...
+#27 34.50 ===> Compiling ranch
+#27 37.85 ===> Analyzing applications...
+#27 38.12 ===> Compiling gen_smtp
+#27 40.66 ==> zoneinfo
+#27 40.66 Compiling 8 files (.ex)
+#27 40.87 Generated zoneinfo app
+#27 40.92 ==> elixir_make
+#27 40.92 Compiling 8 files (.ex)
+#27 41.16 Generated elixir_make app
+#27 41.21 ==> argon2_elixir
+#27 41.23 mkdir -p /app/_build/prod/lib/argon2_elixir/priv
+#27 41.24 cc -g -O3 -pthread -Wall -I"/usr/local/lib/erlang/erts-16.4.0.5/include" -Iargon2/include -Iargon2/src -Ic_src -shared -fPIC -fvisibility=hidden -Wl,-soname,libargon2.so.0 argon2/src/argon2.c argon2/src/core.c argon2/src/blake2/blake2b.c argon2/src/thread.c argon2/src/encoding.c argon2/src/ref.c c_src/argon2_nif.c -o /app/_build/prod/lib/argon2_elixir/priv/argon2_nif.so
+#27 43.56 Compiling 3 files (.ex)
+#27 43.64 Generated argon2_elixir app
+#27 43.69 ==> decimal
+#27 43.69 Compiling 4 files (.ex)
+#27 45.32 Generated decimal app
+#27 45.38 ==> jason
+#27 45.38 Compiling 10 files (.ex)
+#27 48.38 Generated jason app
+#27 48.42 ==> esbuild
+#27 48.42 Compiling 4 files (.ex)
+#27 48.65 Generated esbuild app
+#27 50.12 ==> codex_pooler
+#27 50.12 ===> Analyzing applications...
+#27 52.58 ===> Compiling idna
+#27 113.2 ===> Analyzing applications...
+#27 113.3 ===> Compiling telemetry
+#27 114.0 ==> telemetry_metrics
+#27 114.0 Compiling 7 files (.ex)
+#27 114.2 Generated telemetry_metrics app
+#27 114.3 ==> telemetry_metrics_prometheus_core
+#27 114.3 Compiling 9 files (.ex)
+#27 114.3 warning: first..last inside match is deprecated, you must always match on the step: first..last//var or first..last//_ if you want to ignore it
+#27 114.3   lib/core/registry.ex:87: TelemetryMetricsPrometheus.Core.Registry.validate_distribution_buckets!/1
+#27 114.3 
+#27 114.4      warning: unused require Logger
+#27 114.4      │
+#27 114.4  148 │   require Logger
+#27 114.4      │   ~
+#27 114.4      │
+#27 114.4      └─ lib/core.ex:148:3
+#27 114.4 
+#27 114.5 Generated telemetry_metrics_prometheus_core app
+#27 115.8 ==> codex_pooler
+#27 115.8 ===> Analyzing applications...
+#27 116.0 ===> Compiling telemetry_poller
+#27 116.7 ==> thousand_island
+#27 116.7 Compiling 18 files (.ex)
+#27 117.2 Generated thousand_island app
+#27 117.3 ==> db_connection
+#27 117.3 Compiling 18 files (.ex)
+#27 120.0 Generated db_connection app
+#27 120.1 ==> ecto
+#27 120.1 Compiling 56 files (.ex)
+#27 ...
+
+#25 [app builder  5/13] COPY mix.exs mix.lock ./
+#25 DONE 0.1s
+
+#21 [app internal] load build context
+#21 transferring context: 15.10MB 6.0s done
+#21 DONE 6.2s
+
+#22 [app assets_deps 2/4] WORKDIR /app
+#22 CACHED
+
+#23 [app assets_deps 3/4] COPY assets/package.json assets/package-lock.json ./assets/
+#23 CACHED
+
+#24 [app assets_deps 4/4] RUN --network=host npm ci --prefix assets
+#24 DONE 5.6s
+
+#26 [app builder  6/13] COPY config config
+#26 DONE 0.1s
+
+#27 [app builder  7/13] RUN --network=host mix deps.get --only prod && mix deps.compile
+#27 127.9 Generated ecto app
+#27 127.9 ==> phoenix_html
+#27 127.9 Compiling 6 files (.ex)
+#27 128.5 Generated phoenix_html app
+#27 128.6 ==> phoenix_template
+#27 128.6 Compiling 4 files (.ex)
+#27 128.7      warning: the variable "prefix_size" is accessed inside size(...) of a bitstring but it was defined outside of the match. You must precede it with the pin operator
+#27 128.7      │
+#27 128.7  505 │       <<prefix::binary-size(prefix_size), ^suffix::binary>> -> prefix
+#27 128.7      │                             ~
+#27 128.7      │
+#27 128.7      └─ lib/phoenix/template.ex:505:29: Phoenix.Template.unsuffix/2
+#27 128.7 
+#27 128.8 Generated phoenix_template app
+#27 128.9 ==> expo
+#27 128.9 Compiling 2 files (.erl)
+#27 129.8 Compiling 22 files (.ex)
+#27 130.3 Generated expo app
+#27 130.4 ==> gettext
+#27 130.4 Compiling 18 files (.ex)
+#27 131.0      warning: this clause in cond will never match:
+#27 131.0 
+#27 131.0          not is_binary(locale)
+#27 131.0 
+#27 131.0      since it has type:
+#27 131.0 
+#27 131.0          dynamic(false)
+#27 131.0 
+#27 131.0      where "locale" was given the types:
+#27 131.0 
+#27 131.0          # type: binary()
+#27 131.0          # from: lib/gettext.ex:806:28
+#27 131.0          locale
+#27 131.0 
+#27 131.0          # type: binary()
+#27 131.0          # from: lib/gettext.ex:806:41
+#27 131.0          is_binary(locale)
+#27 131.0 
+#27 131.0      type warning found at:
+#27 131.0      │
+#27 131.0  808 │       not is_binary(locale) ->
+#27 131.0      │                             ~
+#27 131.0      │
+#27 131.0      └─ lib/gettext.ex:808:29: Gettext.put_locale!/2
+#27 131.0 
+#27 131.0      warning: Kernel.ParallelCompiler.async/1 is deprecated. Use `pmap/2` instead
+#27 131.0      │
+#27 131.0  426 │               Kernel.ParallelCompiler.async(fn ->
+#27 131.0      │                                       ~
+#27 131.0      │
+#27 131.0      └─ lib/gettext/compiler.ex:426:39: Gettext.Compiler.compile_po_files/3
+#27 131.0 
+#27 131.0      warning: the following clause is redundant:
+#27 131.0 
+#27 131.0          defp ensure_empty_msgstr!(%Expo.Message.Plural{} = message)
+#27 131.0 
+#27 131.0      it has type:
+#27 131.0 
+#27 131.0          dynamic(%Expo.Message.Plural{})
+#27 131.0 
+#27 131.0      previous clauses have already matched on the following types:
+#27 131.0 
+#27 131.0          %Expo.Message.Singular{}
+#27 131.0          %Expo.Message.Plural{}
+#27 131.0 
+#27 131.0      │
+#27 131.0  391 │   defp ensure_empty_msgstr!(%Message.Plural{} = message) do
+#27 131.0      │        ~
+#27 131.0      │
+#27 131.0      └─ lib/gettext/extractor.ex:391:8: Gettext.Extractor.ensure_empty_msgstr!/1
+#27 131.0 
+#27 131.0 Generated gettext app
+#27 131.0 ==> phoenix_pubsub
+#27 131.0 Compiling 12 files (.ex)
+#27 131.7 Generated phoenix_pubsub app
+#27 131.8 ==> dns_cluster
+#27 131.8 Compiling 2 files (.ex)
+#27 131.9 Generated dns_cluster app
+#27 132.0 ==> plug
+#27 132.0 Compiling 1 file (.erl)
+#27 132.3 Compiling 42 files (.ex)
+#27 137.3 Generated plug app
+#27 137.3 warning: "xref: [exclude: ...]" in your mix.exs file is deprecated, instead use: "elixirc_options: [no_warn_undefined: ...]"
+#27 137.3   (mix 1.20.2) lib/mix/tasks/compile.elixir.ex:243: Mix.Tasks.Compile.Elixir.xref_exclude_opts/2
+#27 137.3   (mix 1.20.2) lib/mix/tasks/compile.elixir.ex:142: Mix.Tasks.Compile.Elixir.run/1
+#27 137.3   (mix 1.20.2) lib/mix/task.ex:502: anonymous fn/3 in Mix.Task.run_task/5
+#27 137.3   (mix 1.20.2) lib/mix/task.compiler.ex:299: Mix.Task.Compiler.run_compiler/2
+#27 137.3   (mix 1.20.2) lib/mix/task.compiler.ex:287: Mix.Task.Compiler.run/4
+#27 137.3   (mix 1.20.2) lib/mix/tasks/compile.all.ex:75: Mix.Tasks.Compile.All.do_run/2
+#27 137.3 
+#27 137.3 ==> postgrex
+#27 137.3 Compiling 70 files (.ex)
+#27 148.1 Generated postgrex app
+#27 148.1 warning: "xref: [exclude: ...]" in your mix.exs file is deprecated, instead use: "elixirc_options: [no_warn_undefined: ...]"
+#27 148.1   (mix 1.20.2) lib/mix/tasks/compile.elixir.ex:243: Mix.Tasks.Compile.Elixir.xref_exclude_opts/2
+#27 148.1   (mix 1.20.2) lib/mix/tasks/compile.elixir.ex:142: Mix.Tasks.Compile.Elixir.run/1
+#27 148.1   (mix 1.20.2) lib/mix/task.ex:502: anonymous fn/3 in Mix.Task.run_task/5
+#27 148.1   (mix 1.20.2) lib/mix/task.compiler.ex:299: Mix.Task.Compiler.run_compiler/2
+#27 148.1   (mix 1.20.2) lib/mix/task.compiler.ex:287: Mix.Task.Compiler.run/4
+#27 148.1   (mix 1.20.2) lib/mix/tasks/compile.all.ex:75: Mix.Tasks.Compile.All.do_run/2
+#27 148.1 
+#27 148.1 ==> phoenix_ecto
+#27 148.1 Compiling 7 files (.ex)
+#27 148.6 Generated phoenix_ecto app
+#27 148.7 ==> ecto_sql
+#27 148.7 Compiling 25 files (.ex)
+#27 151.0 Generated ecto_sql app
+#27 151.1 ==> oban
+#27 151.1 Compiling 70 files (.ex)
+#27 153.4 Generated oban app
+#27 153.5 ==> nimble_pool
+#27 153.5 Compiling 2 files (.ex)
+#27 154.1 Generated nimble_pool app
+#27 154.2 ==> finch
+#27 154.2 Compiling 23 files (.ex)
+#27 156.1 Generated finch app
+#27 156.2 ==> req
+#27 156.2 Compiling 24 files (.ex)
+#27 158.8 Generated req app
+#27 158.9 ==> tailwind
+#27 158.9 Compiling 3 files (.ex)
+#27 159.3 Generated tailwind app
+#27 159.4 ==> websock
+#27 159.4 Compiling 1 file (.ex)
+#27 159.4 Generated websock app
+#27 159.5 ==> bandit
+#27 159.5 Compiling 54 files (.ex)
+#27 161.6 Generated bandit app
+#27 161.7 ==> swoosh
+#27 161.7 Compiling 62 files (.ex)
+#27 163.3 Generated swoosh app
+#27 163.3 ==> websock_adapter
+#27 163.3 Compiling 4 files (.ex)
+#27 163.4 Generated websock_adapter app
+#27 163.5 ==> phoenix
+#27 163.5 Compiling 74 files (.ex)
+#27 166.0 Generated phoenix app
+#27 166.1 ==> phoenix_live_view
+#27 166.1 Compiling 55 files (.ex)
+#27 170.5 Generated phoenix_live_view app
+#27 DONE 170.8s
+
+#28 [app builder  8/13] RUN --network=host for attempt in 1 2 3; do     mix tailwind.install && exit 0;     if [ "${attempt}" -eq 3 ]; then exit 1; fi;     sleep "$((attempt * 2))";   done
+#28 2.724 
+#28 2.724 23:39:33.045 [debug] Downloading tailwind from https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64
