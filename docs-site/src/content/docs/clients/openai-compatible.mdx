@@ -294,6 +294,21 @@ The OpenAI-compatible `/v1` surface supports or translates selected routes only:
 
 The `/v1` surface is compatibility over Codex routing, not a separate OpenAI engine. Supported requests still require a Pool API key and a Pool with eligible upstream capacity for the requested model.
 
+### Chat Completions request compatibility
+
+`POST /v1/chat/completions` accepts normal `messages` requests. It also accepts
+Responses-shaped `input` with `reasoning`, `text`, and `include` when `messages`
+is absent or empty. Combining these fallback fields with nonempty `messages`
+returns `invalid_request`.
+
+Both shapes return Chat Completions JSON or SSE. `stream_options.include_usage`
+controls the terminal streamed usage chunk and is not forwarded upstream.
+Successful function or custom-tool turns return `finish_reason: "tool_calls"`,
+including streams whose terminal event omits the output list.
+
+The optional `user` field accepts a string or null and is discarded before
+dispatch. It does not establish ownership, permissions, or routing identity.
+
 ### Image generation and edits
 
 Use `gpt-image-2` for current image examples. It is the [latest GPT Image model](https://developers.openai.com/api/docs/models/gpt-image-2); older supported identifiers remain available for compatibility. Media identifiers do not have to appear in the Pool's model catalog for these translated routes to work.

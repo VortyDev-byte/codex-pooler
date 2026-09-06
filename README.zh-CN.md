@@ -9,6 +9,7 @@
   <a href="https://docs.codex-pooler.com/clients/hermes/" title="Hermes Agent"><img src=".github/assets/hermes-favicon.png" alt="Hermes Agent" width="24" height="24"></a>
   <a href="https://docs.codex-pooler.com/clients/pi/" title="Pi"><img src=".github/assets/pi-favicon.png" alt="Pi" width="24" height="24"></a>
   <a href="https://docs.codex-pooler.com/clients/omp/" title="OMP"><img src=".github/assets/omp-favicon.png" alt="OMP" width="24" height="24"></a>
+  <a href="https://docs.codex-pooler.com/clients/cursor/" title="Cursor"><img src=".github/assets/cursor-favicon.png" alt="Cursor" width="24" height="24"></a>
   <a href="https://docs.codex-pooler.com/clients/kilo/" title="Kilo"><img src=".github/assets/kilo-favicon.png" alt="Kilo" width="24" height="24"></a>
   <a href="https://docs.codex-pooler.com/clients/trae/" title="Trae"><img src=".github/assets/trae-favicon.png" alt="Trae" width="24" height="24"></a>
   <a href="https://docs.codex-pooler.com/clients/aider/" title="Aider"><img src=".github/assets/aider-favicon.png" alt="Aider" width="24" height="24"></a>
@@ -1041,6 +1042,22 @@ omp --model codex-pooler/gpt-5.6-terra:xhigh \
 OMP 带有支持 MCP 的工具，但 Codex Pooler 模型使用不需要 MCP。如果使用 Codex
 Pooler 可选的运营者 MCP 端点，请把 `/mcp` 运营者令牌与用于 `/v1` 的 Pool API
 密钥分开。
+
+</details>
+
+<details>
+<summary><img src=".github/assets/cursor-favicon.png" alt="Cursor logo" width="16" height="16"> Cursor <code>Settings → Models → API Keys</code></summary>
+
+在 Cursor 中启用 **OpenAI API Key** 和 **Override OpenAI Base URL** 两个开关。
+使用 Pool API key、公开可访问的 HTTPS base URL（例如
+`https://codex-pooler.example.com/v1`），并在新聊天中明确选择
+`gpt-5.6-luna` 等模型。
+
+Cursor BYOK 需要有效的 **Pro 或更高订阅**。请求会经过 Cursor 的服务器，
+因此 **localhost 和私有局域网地址不可用**。Auto 模式不能证明请求使用了 Pooler。
+
+前置条件、模型选择和连接检查请参阅
+[Cursor 配置指南](https://docs.codex-pooler.com/clients/cursor/)。
 
 </details>
 

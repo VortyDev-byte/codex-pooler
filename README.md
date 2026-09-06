@@ -9,6 +9,7 @@
   <a href="https://docs.codex-pooler.com/clients/hermes/" title="Hermes Agent"><img src=".github/assets/hermes-favicon.png" alt="Hermes Agent" width="24" height="24"></a>
   <a href="https://docs.codex-pooler.com/clients/pi/" title="Pi"><img src=".github/assets/pi-favicon.png" alt="Pi" width="24" height="24"></a>
   <a href="https://docs.codex-pooler.com/clients/omp/" title="OMP"><img src=".github/assets/omp-favicon.png" alt="OMP" width="24" height="24"></a>
+  <a href="https://docs.codex-pooler.com/clients/cursor/" title="Cursor"><img src=".github/assets/cursor-favicon.png" alt="Cursor" width="24" height="24"></a>
   <a href="https://docs.codex-pooler.com/clients/kilo/" title="Kilo"><img src=".github/assets/kilo-favicon.png" alt="Kilo" width="24" height="24"></a>
   <a href="https://docs.codex-pooler.com/clients/trae/" title="Trae"><img src=".github/assets/trae-favicon.png" alt="Trae" width="24" height="24"></a>
   <a href="https://docs.codex-pooler.com/clients/aider/" title="Aider"><img src=".github/assets/aider-favicon.png" alt="Aider" width="24" height="24"></a>
@@ -1130,6 +1131,23 @@ omp --model codex-pooler/gpt-5.6-terra:xhigh \
 OMP ships MCP-capable tooling, but Codex Pooler model use does not require MCP.
 If you use Codex Pooler's optional operator MCP endpoint, keep the `/mcp`
 operator token separate from the Pool API key used for `/v1`.
+
+</details>
+
+<details>
+<summary><img src=".github/assets/cursor-favicon.png" alt="Cursor logo" width="16" height="16"> Cursor <code>Settings → Models → API Keys</code></summary>
+
+Connect Cursor through **OpenAI API Key** and **Override OpenAI Base URL**,
+with both switches enabled. Use your Pool API key, a public HTTPS base URL
+such as `https://codex-pooler.example.com/v1`, and an explicit model such as
+`gpt-5.6-luna` in a new chat.
+
+Cursor BYOK requires an active **Pro or higher** subscription. Requests pass
+through Cursor's servers, so **localhost and private LAN URLs do not work**.
+Auto mode does not prove that your Pooler endpoint is being used.
+
+See the [Cursor setup guide](https://docs.codex-pooler.com/clients/cursor/)
+for prerequisites, model selection, and connection checks.
 
 </details>
 
