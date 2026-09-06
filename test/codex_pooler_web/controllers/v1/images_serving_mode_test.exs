@@ -193,7 +193,78 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
     assert Repo.aggregate(Attempt, :count) == 0
   end
 
-  defp setup_host(upstream, mode) do
+  for mode <- ["full", "lite"], options <- [:mask, :fidelity, :both] do
+    @mode mode
+    @options options
+    test "gpt-image-2 edit with #{@options} uses #{@mode} Responses transport", %{conn: conn} do
+      source = png(255, 0, 0)
+      mask = png(0, 255, 0)
+      upstream = start_upstream(image_stream(Base.encode64(png(0, 0, 255))))
+      setup = setup_host(upstream, @mode, "gpt-image-2")
+      fields = [{"model", "gpt-image-2"}, {"prompt", "synthetic image"}, {"quality", "high"}]
+
+      fields =
+        if @options in [:fidelity, :both],
+          do: fields ++ [{"input_fidelity", "high"}],
+          else: fields
+
+      parts =
+        for {key, value} <- fields,
+            do:
+              "--edit-options\r\nContent-Disposition: form-data; name=\"#{key}\"\r\n\r\n#{value}\r\n"
+
+      uploads =
+        if @options in [:mask, :both],
+          do: [{"image", source}, {"mask", mask}],
+          else: [{"image", source}]
+
+      files =
+        for {key, bytes} <- uploads,
+            do: [
+              "--edit-options\r\nContent-Disposition: form-data; name=\"#{key}\"; filename=\"sample.png\"\r\nContent-Type: image/png\r\n\r\n",
+              bytes,
+              "\r\n"
+            ]
+
+      response =
+        conn
+        |> auth(setup)
+        |> put_req_header("content-type", "multipart/form-data; boundary=edit-options")
+        |> post("/v1/images/edits", IO.iodata_to_binary([parts, files, "--edit-options--\r\n"]))
+
+      assert %{"data" => [_]} = json_response(response, 200)
+      assert [captured] = FakeUpstream.requests(upstream)
+      assert captured.path == "/backend-api/codex/responses"
+      assert [tool] = image_tools(captured.json, @mode)
+      assert tool["model"] == "gpt-image-2"
+      assert tool["quality"] == "high"
+      assert Map.has_key?(tool, "input_fidelity") == @options in [:fidelity, :both]
+      if @options in [:fidelity, :both], do: assert(tool["input_fidelity"] == "high")
+      assert Map.has_key?(tool, "input_image_mask") == @options in [:mask, :both]
+
+      if @options in [:mask, :both] do
+        assert %{"image_url" => "data:image/png;base64," <> encoded} = tool["input_image_mask"]
+        assert Base.decode64!(encoded) == mask
+      end
+
+      content = captured.json["input"] |> Enum.flat_map(&Map.get(&1, "content", []))
+
+      assert [
+               %{"type" => "input_text", "text" => "synthetic image"},
+               %{"type" => "input_image", "image_url" => "data:image/png;base64," <> encoded}
+             ] = content
+
+      assert Base.decode64!(encoded) == source
+      assert [request] = Repo.all(Request)
+      assert request.status == "succeeded"
+      assert request.request_metadata["effective_model"] == "gpt-image-2"
+      assert [attempt] = Repo.all(Attempt)
+      assert attempt.response_metadata["routing"]["model_serving_mode"] == @mode
+      assert_usage_settled_once(request, attempt)
+    end
+  end
+
+  defp setup_host(upstream, mode, image_model \\ "gpt-image-1") do
     setup = gateway_setup(upstream)
 
     setup.model
@@ -208,7 +279,7 @@ defmodule CodexPoolerWeb.V1.ImagesServingModeTest do
     |> Repo.update!()
 
     setup.api_key
-    |> Ecto.Changeset.change(allowed_model_identifiers: ["gpt-image-1"])
+    |> Ecto.Changeset.change(allowed_model_identifiers: [image_model])
     |> Repo.update!()
 
     timestamp = DateTime.utc_now()
