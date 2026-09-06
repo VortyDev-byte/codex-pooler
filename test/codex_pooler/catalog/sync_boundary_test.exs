@@ -95,6 +95,32 @@ defmodule CodexPooler.Catalog.SyncBoundaryTest do
     assert {:ok, [], [], []} = Discovery.discover_models([], fn _ -> flunk("no sources") end)
   end
 
+  test "non-success HTTP responses and unsupported bodies fail without retiring existing models" do
+    for status <- [200, 403, 503] do
+      {:ok, server} =
+        FakeUpstream.start_link(FakeUpstream.json_response(%{"unexpected" => true}, status))
+
+      on_exit(fn -> FakeUpstream.stop(server) end)
+      pool = pool_fixture()
+      source(pool, FakeUpstream.url(server))
+      model = model_fixture(pool)
+
+      assert {:error, run, %{code: :catalog_sync_failed}} = Sync.sync_pool_catalog(pool)
+      assert run.error_message == "model list request failed with #{status}"
+      assert Repo.reload!(model).status == "active"
+    end
+  end
+
+  test "custom catalog fetchers accept atom slug identifiers" do
+    pool = pool_fixture()
+    source(pool, "http://127.0.0.1:1")
+
+    assert {:ok, %{models: [model]}} =
+             Sync.sync_pool_catalog(pool, fetcher: fn _ -> {:ok, [%{slug: "sample-atom"}]} end)
+
+    assert model.exposed_model_id == "sample-atom"
+  end
+
   test "malformed source preserves prior metadata while healthy sources still update" do
     pool = pool_fixture()
     bad_upstream = upstream(%{"models" => [nil]})

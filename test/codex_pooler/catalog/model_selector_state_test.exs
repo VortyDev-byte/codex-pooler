@@ -1,6 +1,7 @@
 defmodule CodexPooler.Catalog.ModelSelectorStateTest do
   use ExUnit.Case, async: true
 
+  alias CodexPooler.Catalog.Model
   alias CodexPooler.Catalog.ModelSelectorState
 
   test "normalizes legacy aliases and excludes malformed and duplicate selections" do
@@ -39,5 +40,27 @@ defmodule CodexPooler.Catalog.ModelSelectorStateTest do
     assert state.catalog.message == "Model catalog sync failed"
     assert state.catalog.requires_acknowledgement?
     assert [%{code: :failed, message: "Model catalog sync failed"}] = state.warnings
+  end
+
+  test "malformed persisted source ids and non-list selections do not create phantom options" do
+    for metadata <- [
+          nil,
+          %{"source_assignment_ids" => "not-a-list"},
+          %{"source_assignment_ids" => %{}}
+        ] do
+      model = %Model{exposed_model_id: "sample", display_name: "Sample", metadata: metadata}
+
+      state =
+        ModelSelectorState.build(
+          %{selected_model_identifiers: %{}, manual_model_identifiers: 42},
+          %{status: :synced, reason: nil},
+          [model]
+        )
+
+      assert state.selected_identifiers == []
+      assert state.manual_identifiers == []
+      assert [%{identifier: "sample", source_assignment_ids: []}] = state.options
+      assert ModelSelectorState.validate_manual_model_identifiers(%{}) == {:ok, []}
+    end
   end
 end
