@@ -930,7 +930,7 @@ defmodule CodexPooler.Gateway.Transports.Streaming.WebsocketCodec do
        )
        when is_list(input) do
     ordinary_native_turn_continuation?(payload) and ToolResultShape.any?(input) and
-      not native_final_compaction?(input)
+      not native_final_compaction?(input, payload)
   end
 
   defp ordinary_native_tool_continuation?(_payload, %RequestOptions{}), do: false
@@ -946,11 +946,19 @@ defmodule CodexPooler.Gateway.Transports.Streaming.WebsocketCodec do
 
   defp ordinary_native_turn_continuation?(payload), do: previous_response_present?(payload)
 
-  defp native_final_compaction?(input) do
-    Enum.any?(
-      input,
+  defp native_final_compaction?(input, payload) do
+    compaction? =
       &match?(%{"type" => type} when type in ["compaction", "compaction_summary"], &1)
-    )
+
+    if Enum.any?(input, compaction?) do
+      metadata = get_in(payload, ["client_metadata", "x-codex-turn-metadata"])
+      after_compaction = input |> Enum.reverse() |> Enum.take_while(&(not compaction?.(&1)))
+
+      not (match?(%{"request_kind" => "turn"}, canonical_metadata_map(metadata)) and
+             ToolResultShape.any?(after_compaction))
+    else
+      false
+    end
   end
 
   defp previous_response_present?(%{"previous_response_id" => value}) when is_binary(value),

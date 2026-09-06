@@ -9403,6 +9403,155 @@ defmodule CodexPoolerWeb.Runtime.BackendCodexWebsocketOwnerForwardingTest do
     assert_no_leak_in_persistence!(setup.pool.id)
   end
 
+  @tag :no_rollover_history
+  test "fresh tool continuation after historical compaction keeps a distinct request claim" do
+    call = %{
+      "type" => "function_call",
+      "call_id" => "call_synthetic_history",
+      "name" => "synthetic_lookup",
+      "arguments" => "{}"
+    }
+
+    upstream =
+      start_upstream(
+        {:sequence,
+         [
+           FakeUpstream.json_response(%{
+             "id" => "resp_synthetic_history",
+             "object" => "response",
+             "output" => [call]
+           }),
+           FakeUpstream.json_response(%{
+             "id" => "resp_synthetic_continuation",
+             "object" => "response",
+             "output" => []
+           })
+         ]}
+      )
+
+    setup = gateway_setup(upstream)
+    {:ok, auth} = Access.authenticate_authorization_header(setup.authorization)
+
+    metadata = %{
+      "turn_id" => "synthetic-history-turn",
+      "x-codex-turn-metadata" =>
+        Jason.encode!(%{"turn_id" => "synthetic-history-turn", "request_kind" => "turn"})
+    }
+
+    history = [%{"type" => "compaction", "encrypted_content" => "synthetic-history-summary"}]
+
+    {:ok, first_state} =
+      owner_socket(auth, "synthetic-history-first", "synthetic-history-session")
+
+    payload = websocket_input_payload(setup, history, %{"client_metadata" => metadata})
+
+    assert {:ok, first_state} =
+             CodexResponsesSocket.handle_in({payload, [opcode: :text]}, first_state)
+
+    assert {:push, {:text, frame}, first_state} = receive_owner_socket_push(first_state)
+    assert [received_call] = Jason.decode!(frame)["output"]
+    assert received_call == call
+    assert {:ok, first_state} = receive_socket_done(first_state)
+    assert :ok = CodexResponsesSocket.terminate(:closed, first_state)
+    assert [%{status: "succeeded"}] = request_logs(setup.pool.id)
+
+    {:ok, next_state} = owner_socket(auth, "synthetic-history-next", "synthetic-history-session")
+
+    next_input =
+      history ++
+        [
+          received_call,
+          %{
+            "type" => "function_call_output",
+            "call_id" => received_call["call_id"],
+            "output" => "synthetic-result"
+          }
+        ]
+
+    next_payload = websocket_input_payload(setup, next_input, %{"client_metadata" => metadata})
+
+    assert {:ok, prepared} =
+             Service.prepare_websocket_response(
+               next_payload,
+               RequestOptions.build(
+                 %{codex_session: next_state.codex_session, api_key_runtime_epoch: 0},
+                 "/backend-api/codex/responses",
+                 Jason.decode!(next_payload)
+               ),
+               fn _ -> :ok end
+             )
+
+    assert {:error, :payload_mismatch} =
+             Accounting.client_retry_preflight_snapshot(
+               next_state.codex_session,
+               auth.api_key,
+               setup.model,
+               %{
+                 semantic_turn_digest: prepared.semantic_turn_key,
+                 replay_claim_digest: prepared.replay_claim_digest,
+                 endpoint: "/backend-api/codex/responses",
+                 requested_model: setup.model.exposed_model_id,
+                 runtime_revocation_epoch: auth.api_key.runtime_revocation_epoch,
+                 anchor_present?: false
+               }
+             )
+
+    try do
+      result = CodexResponsesSocket.handle_in({next_payload, [opcode: :text]}, next_state)
+      assert match?({:ok, _}, result), "fresh historical tool continuation was rejected"
+      {:ok, next_state} = result
+      assert {:push, {:text, _frame}, next_state} = receive_owner_socket_push(next_state)
+      assert {:ok, next_state} = receive_socket_done(next_state)
+
+      assert {:ok, retry_state} =
+               CodexResponsesSocket.handle_in({next_payload, [opcode: :text]}, next_state)
+
+      assert {:push, {:text, retry_frame}, retry_state} = receive_owner_socket_push(retry_state)
+      assert Jason.decode!(retry_frame)["error"]["code"] == "duplicate_turn"
+      assert MapSet.size(retry_state.tasks) == 0
+      assert :ok = CodexResponsesSocket.terminate(:closed, retry_state)
+      assert [first, second] = request_logs(setup.pool.id)
+      assert first.status == "succeeded"
+      assert second.status == "succeeded"
+      refute first.correlation_id == second.correlation_id
+      assert length(await_upstream_requests(upstream, 2)) == 2
+
+      request_ids = [first.id, second.id]
+
+      assert Repo.aggregate(
+               from(attempt in Attempt, where: attempt.request_id in ^request_ids),
+               :count
+             ) == 2
+
+      assert Repo.aggregate(
+               from(turn in CodexTurn,
+                 where: turn.request_id in ^request_ids and turn.status == "succeeded"
+               ),
+               :count
+             ) == 2
+
+      refute Repo.exists?(
+               from(link in RequestClientRetryLink,
+                 where: link.predecessor_request_id in ^request_ids
+               )
+             )
+
+      for request_id <- request_ids do
+        kinds =
+          Repo.all(
+            from(entry in LedgerEntry,
+              where: entry.request_id == ^request_id,
+              select: entry.entry_kind
+            )
+          )
+
+        assert Enum.sort(kinds) == ["release", "reservation", "settlement"]
+      end
+    after
+      CodexResponsesSocket.terminate(:closed, next_state)
+    end
+  end
+
   defp websocket_payload(setup, content, extra \\ %{}) do
     websocket_input_payload(
       setup,

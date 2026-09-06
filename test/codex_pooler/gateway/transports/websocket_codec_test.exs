@@ -764,6 +764,71 @@ defmodule CodexPooler.Gateway.Transports.Streaming.WebsocketCodecTest do
                compaction_admitted.turn_claim_key
     end
 
+    test "historical compaction needs a later tool result and explicit ordinary turn metadata" do
+      for summary_type <- ["compaction", "compaction_summary"] do
+        summary = %{"type" => summary_type, "encrypted_content" => "synthetic-summary"}
+
+        output = %{
+          "type" => "custom_tool_call_output",
+          "call_id" => "call_synthetic",
+          "output" => "synthetic"
+        }
+
+        for {kind, input, distinct?} <- [
+              {"turn", [summary, output], true},
+              {"turn", [output, summary], false},
+              {"turn", [summary, output, summary], false},
+              {"turn",
+               [summary, %{"type" => "message", "role" => "user", "content" => "synthetic"}],
+               false},
+              {"compaction", [summary, output], false},
+              {nil, [summary, output], false}
+            ] do
+          payload =
+            native_request_claim_payload("synthetic-history-turn", "resp_synthetic", input)
+            |> put_in(
+              ["client_metadata", "x-codex-turn-metadata"],
+              Jason.encode!(%{"turn_id" => "synthetic-history-turn", "request_kind" => kind})
+            )
+
+          assert {:ok, prepared} =
+                   WebsocketCodec.prepare_frame(
+                     Jason.encode!(payload),
+                     native_responses_options(payload),
+                     fn _ -> :ok end
+                   )
+
+          assert prepared.request_options.continuity.request_claim_key != prepared.turn_claim_key ==
+                   distinct?
+
+          if distinct? do
+            assert {:ok, direct} =
+                     WebsocketCodec.prepare_frame(
+                       Jason.encode!(payload),
+                       direct_responses_options(payload),
+                       fn _ -> :ok end
+                     )
+
+            admission = direct_admission(direct)
+
+            assert {:ok, admitted} =
+                     WebsocketCodec.attach_native_compaction_admission(direct, admission)
+
+            assert admitted.request_options.continuity.request_claim_key ==
+                     admitted.turn_claim_key
+
+            forged =
+              put_in(
+                prepared.request_options.native_compaction_admission,
+                final_admission(prepared)
+              )
+
+            refute WebsocketCodec.valid_prepared_frame?(forged)
+          end
+        end
+      end
+    end
+
     test "falls back to the logical turn claim for non-tool, public, and native compaction paths" do
       turn_id = "turn-fallback-claim"
 
