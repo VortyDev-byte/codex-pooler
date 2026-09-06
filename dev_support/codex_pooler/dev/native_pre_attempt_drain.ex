@@ -29,6 +29,18 @@ defmodule CodexPooler.Dev.NativePreAttemptDrain do
     end
   end
 
+  @spec capture_visible(Ecto.UUID.t()) :: :ok | {:error, atom()}
+  def capture_visible(pool_id) do
+    with {:ok, _pid} <- ensure_started() do
+      GenServer.call(__MODULE__, {:capture_visible, pool_id})
+    end
+  end
+
+  @spec capture_idle(Ecto.UUID.t()) :: :ok | {:error, atom()}
+  def capture_idle(pool_id) do
+    with {:ok, _pid} <- ensure_started(), do: GenServer.call(__MODULE__, {:capture_idle, pool_id})
+  end
+
   @spec drain() :: :ok | {:error, atom()}
   def drain do
     case Process.whereis(__MODULE__) do
@@ -122,6 +134,62 @@ defmodule CodexPooler.Dev.NativePreAttemptDrain do
   end
 
   def handle_call({:arm, _}, _from, state), do: {:reply, {:error, :already_armed}, state}
+
+  def handle_call({:capture_idle, pool_id}, _from, %{armed: false} = state) do
+    sessions =
+      Repo.all(
+        from(t in CodexTurn,
+          join: r in Request,
+          on: r.id == t.request_id,
+          where: r.pool_id == ^pool_id and r.status == "succeeded",
+          select: t.codex_session_id,
+          distinct: true,
+          limit: 2
+        )
+      )
+
+    with [session_id] <- sessions,
+         {:ok, owner} <- WebsocketOwnerSession.lookup(session_id),
+         {:ok, %{active_turn?: false, draining?: false}} <-
+           WebsocketOwnerSession.owner_status(owner) do
+      {:reply, :ok,
+       %{state | armed: true, captured: true, pool_id: pool_id, session_id: session_id}}
+    else
+      _ -> {:reply, {:error, :idle_owner_required}, state}
+    end
+  end
+
+  def handle_call({:capture_idle, _}, _from, state), do: {:reply, {:error, :already_armed}, state}
+
+  def handle_call({:capture_visible, pool_id}, _from, %{armed: false} = state) do
+    sessions =
+      Repo.all(
+        from(t in CodexTurn,
+          join: r in Request,
+          on: r.id == t.request_id,
+          join: a in Attempt,
+          on: a.request_id == r.id,
+          where:
+            r.pool_id == ^pool_id and r.status == "in_progress" and
+              not is_nil(t.first_visible_output_at),
+          select: t.codex_session_id,
+          distinct: true,
+          limit: 2
+        )
+      )
+
+    case sessions do
+      [session_id] ->
+        {:reply, :ok,
+         %{state | armed: true, captured: true, pool_id: pool_id, session_id: session_id}}
+
+      _ ->
+        {:reply, {:error, :visible_attempt_required}, state}
+    end
+  end
+
+  def handle_call({:capture_visible, _}, _from, state),
+    do: {:reply, {:error, :already_armed}, state}
 
   def handle_call({:authorized_pool, pool_id}, _from, state),
     do: {:reply, state.pool_id in [nil, pool_id], state}

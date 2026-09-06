@@ -54,6 +54,26 @@ defmodule CodexPooler.Dev.NativePreAttemptDrain.Plug do
     end
   end
 
+  defp dispatch(%{method: "POST", path_info: ["capture-idle"]} = conn) do
+    with {:ok, params} <- body(conn),
+         true <- params == %{},
+         :ok <- NativePreAttemptDrain.capture_idle(conn.assigns.drain_pool_id) do
+      json(conn, 200, NativePreAttemptDrain.status())
+    else
+      _ -> json(conn, 409, %{error: "idle_owner_required"})
+    end
+  end
+
+  defp dispatch(%{method: "POST", path_info: ["capture-visible"]} = conn) do
+    with {:ok, params} <- body(conn),
+         true <- params == %{},
+         :ok <- NativePreAttemptDrain.capture_visible(conn.assigns.drain_pool_id) do
+      json(conn, 200, NativePreAttemptDrain.status())
+    else
+      _ -> json(conn, 409, %{error: "visible_attempt_required"})
+    end
+  end
+
   defp dispatch(%{method: "POST", path_info: ["disarm"]} = conn) do
     with {:ok, params} <- body(conn), true <- params == %{} do
       :ok = NativePreAttemptDrain.disarm()

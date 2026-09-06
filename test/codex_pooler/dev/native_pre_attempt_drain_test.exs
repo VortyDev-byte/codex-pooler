@@ -11,6 +11,32 @@ defmodule CodexPooler.Dev.NativePreAttemptDrainTest do
     %{owned: api_key_fixture(), foreign: api_key_fixture()}
   end
 
+  test "idle capture requires an actual scoped successful session and idle live owner", %{
+    owned: owned
+  } do
+    response =
+      conn(:post, "/capture-idle", "{}")
+      |> put_req_header("authorization", owned.authorization)
+      |> DrainPlug.call([])
+
+    assert response.status == 409
+    assert Jason.decode!(response.resp_body) == %{"error" => "idle_owner_required"}
+    refute NativePreAttemptDrain.status().captured
+    refute NativePreAttemptDrain.status().armed
+  end
+
+  test "visible capture requires an actual attempted visible request", %{owned: owned} do
+    response =
+      conn(:post, "/capture-visible", "{}")
+      |> put_req_header("authorization", owned.authorization)
+      |> DrainPlug.call([])
+
+    assert response.status == 409
+    assert Jason.decode!(response.resp_body) == %{"error" => "visible_attempt_required"}
+    refute NativePreAttemptDrain.status().captured
+    refute NativePreAttemptDrain.status().armed
+  end
+
   test "rearms after its owner process exits without retaining the old telemetry handler", %{
     owned: owned
   } do
