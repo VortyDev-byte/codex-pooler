@@ -77,16 +77,9 @@ defmodule CodexPooler.Admin.UpstreamCockpitMetrics.RequestHealth do
   end
 
   defp terminal_requests_query(identity_id, pool_ids, start_7d, as_of) do
-    target_request_ids =
-      from attempt in Attempt,
-        where: attempt.upstream_identity_id == ^identity_id,
-        group_by: attempt.request_id,
-        select: attempt.request_id
-
     Request
-    |> join(:inner, [request], target in subquery(target_request_ids),
-      on: target.request_id == request.id
-    )
+    |> from(as: :request)
+    |> join(:inner_lateral, [], target in subquery(target_attempt_query(identity_id)), on: true)
     |> where([request], request.pool_id in ^pool_ids)
     |> where([request], request.status in ^@request_terminal_statuses)
     |> where([request], request.admitted_at >= ^start_7d and request.admitted_at <= ^as_of)
@@ -234,41 +227,53 @@ defmodule CodexPooler.Admin.UpstreamCockpitMetrics.RequestHealth do
 
   defp recent_request_event_rows_for_identity(_identity_id, _scope, _limit), do: []
 
-  defp recent_request_event_rows_for_pools(identity_id, pool_ids, limit) do
-    target_requests_query =
-      from attempt in Attempt,
-        where: attempt.upstream_identity_id == ^identity_id,
-        group_by: attempt.request_id,
-        select: %{request_id: attempt.request_id}
+  defp target_attempt_query(identity_id) do
+    from attempt in Attempt,
+      where: attempt.request_id == parent_as(:request).id,
+      where: attempt.upstream_identity_id == ^identity_id,
+      limit: 1,
+      select: %{id: attempt.id}
+  end
 
+  defp recent_request_event_rows_for_pools(identity_id, pool_ids, limit) do
+    retry_query =
+      from attempt in Attempt,
+        where: attempt.request_id == parent_as(:request).id,
+        offset: 1,
+        limit: 1,
+        select: 1
+
+    # Probe candidates in request order, stopping once the event limit is met.
+    # The lateral limit avoids grouping an identity's entire attempt history.
+    recent_requests_query =
+      from request in Request,
+        as: :request,
+        inner_lateral_join: target in subquery(target_attempt_query(identity_id)),
+        on: true,
+        where: request.pool_id in ^pool_ids,
+        where: request.status in ^@request_failed_statuses or exists(subquery(retry_query)),
+        order_by: [desc: request.admitted_at, desc: request.id],
+        limit: ^limit,
+        select: %{
+          id: request.id,
+          status: request.status,
+          admitted_at: request.admitted_at,
+          completed_at: request.completed_at,
+          response_status_code: request.response_status_code,
+          last_error_code: request.last_error_code
+        }
+
+    # Exact counts include all upstreams, but only for the selected event rows.
     attempt_counts_query =
       from attempt in Attempt,
-        group_by: attempt.request_id,
-        select: %{request_id: attempt.request_id, attempt_count: count(attempt.id)}
+        where: attempt.request_id == parent_as(:recent_request).id,
+        select: count(attempt.id)
 
-    Request
-    |> join(:inner, [request], target in subquery(target_requests_query),
-      on: target.request_id == request.id
-    )
-    |> join(:inner, [request], attempts in subquery(attempt_counts_query),
-      on: attempts.request_id == request.id
-    )
-    |> where([request], request.pool_id in ^pool_ids)
-    |> where(
-      [request, _target, attempts],
-      request.status in ^@request_failed_statuses or attempts.attempt_count > 1
-    )
+    recent_requests_query
+    |> subquery()
+    |> from(as: :recent_request)
     |> order_by([request], desc: request.admitted_at, desc: request.id)
-    |> limit(^limit)
-    |> select([request, _target, attempts], %{
-      id: request.id,
-      status: request.status,
-      admitted_at: request.admitted_at,
-      completed_at: request.completed_at,
-      response_status_code: request.response_status_code,
-      last_error_code: request.last_error_code,
-      attempt_count: attempts.attempt_count
-    })
+    |> select_merge([request], %{attempt_count: subquery(attempt_counts_query)})
     |> Repo.all()
   end
 
