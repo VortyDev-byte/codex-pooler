@@ -15,7 +15,7 @@ defmodule CodexPoolerWeb.Runtime.AnchoredOwnerDrainSupport do
 
   @budget 15_000
 
-  @spec fixture() :: {map(), pid(), map(), reference()}
+  @spec fixture() :: {map(), FakeUpstream.t(), map(), reference()}
   def fixture do
     cache = InstanceSettings.snapshot_cache_for_test()
     on_exit(fn -> InstanceSettings.restore_cache_for_test(cache) end)
