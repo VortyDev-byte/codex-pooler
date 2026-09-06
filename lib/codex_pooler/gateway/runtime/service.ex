@@ -18,6 +18,7 @@ defmodule CodexPooler.Gateway.Runtime.Service do
   alias CodexPooler.Gateway.Persistence.SessionContinuity.Aliases, as: SessionAliases
   alias CodexPooler.Gateway.Routing.BridgeRing
   alias CodexPooler.Gateway.Routing.CandidateEligibility
+  alias CodexPooler.Gateway.Routing.ModelMetadata
   alias CodexPooler.Gateway.Routing.RouteFiltering
   alias CodexPooler.Gateway.Routing.SessionContinuity
   alias CodexPooler.Gateway.Runtime.Dispatch.AccountingReservation
@@ -1758,9 +1759,31 @@ defmodule CodexPooler.Gateway.Runtime.Service do
     hydration = CandidateEligibility.hydrate_model_visibility(pool)
 
     hydration.visible_models
+    |> order_media_hosts(request_options)
     |> Enum.find(&media_host_model?(&1, request_options))
     |> media_host_context(hydration, requested_model)
   end
+
+  defp order_media_hosts(models, %RequestOptions{
+         openai_compatibility: %{collect_openai_image_stream: true}
+       }) do
+    Enum.sort_by(models, fn model ->
+      metadata = ModelMetadata.metadata(model)
+
+      visibility =
+        case metadata["visibility"] do
+          "list" -> 0
+          hidden when hidden in ["hide", "none"] -> 2
+          _unspecified -> 1
+        end
+
+      priority = metadata["priority"]
+      rank = if is_integer(priority), do: {0, priority}, else: {1, 0}
+      {visibility, rank, model.exposed_model_id}
+    end)
+  end
+
+  defp order_media_hosts(models, %RequestOptions{}), do: models
 
   defp media_host_context(%Model{} = model, hydration, requested_model) do
     Map.merge(hydration, %{
