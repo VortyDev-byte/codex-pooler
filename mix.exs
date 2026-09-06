@@ -87,7 +87,7 @@ defmodule CodexPooler.MixProject do
       {:telemetry_poller, "== 1.3.0"},
       {:zoneinfo, "== 0.1.9"},
       {:credo, "== 1.7.19", only: [:dev, :test], runtime: false},
-      {:dialyxir, "== 1.4.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "== 1.4.8", only: [:dev, :test], runtime: false},
       {:sobelow, "== 0.15.0", only: [:dev, :test], runtime: false},
       {:six, "== 0.4.1", only: :test},
       {:gettext, "== 1.0.2"},
