@@ -566,8 +566,9 @@ defmodule CodexPooler.Quotas.Evidence.CodexParsers do
     end
   end
 
-  defp codex_usage_credits(%{"balance" => balance}), do: codex_credit_balance(balance)
-  defp codex_usage_credits(_credits), do: nil
+  @spec codex_usage_credits(term()) :: non_neg_integer() | nil
+  def codex_usage_credits(%{"balance" => balance}), do: codex_credit_balance(balance)
+  def codex_usage_credits(_credits), do: nil
 
   defp codex_credit_balance(balance) when is_integer(balance) and balance >= 0, do: balance
 

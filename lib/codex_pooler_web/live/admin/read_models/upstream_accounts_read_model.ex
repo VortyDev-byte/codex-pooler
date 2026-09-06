@@ -460,7 +460,12 @@ defmodule CodexPoolerWeb.Admin.UpstreamAccountsReadModel do
       quota_readiness: quota_readiness,
       routing_readiness: routing_readiness,
       quota_limits:
-        QuotaProjection.quota_limit_rows(quota_windows, datetime_preferences, snapshot_at),
+        QuotaProjection.quota_limit_rows(
+          quota_windows,
+          datetime_preferences,
+          snapshot_at,
+          quota_snapshot.credit_balance
+        ),
       identity_observability: identity_observability
     }
 

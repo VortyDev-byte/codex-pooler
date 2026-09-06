@@ -26,9 +26,11 @@ defmodule CodexPoolerWeb.Admin.UpstreamsLiveTest do
   alias CodexPooler.Repo
   alias CodexPooler.Upstreams
   alias CodexPooler.Upstreams.Auth.CodexAuth
+  alias CodexPooler.Upstreams.Lifecycle.CredentialFencing
   alias CodexPooler.Upstreams.OAuthFlows
   alias CodexPooler.Upstreams.Quota.AccountAvailabilityStore
   alias CodexPooler.Upstreams.Quota.AccountQuotaWindow
+  alias CodexPooler.Upstreams.Quota.CreditBalanceStore
   alias CodexPooler.Upstreams.Quota.PrimingState
   alias CodexPooler.Upstreams.Quota.Windows.EvidenceStore
   alias CodexPooler.Upstreams.SavedResets.AutoEligibility
@@ -3526,11 +3528,7 @@ defmodule CodexPoolerWeb.Admin.UpstreamsLiveTest do
 
     assert has_element?(view, "#upstream-account-#{identity.id}-limit-primary_5h", "64%")
 
-    assert has_element?(
-             view,
-             "#upstream-account-#{identity.id}-limit-primary_5h",
-             "64 / 100 credits"
-           )
+    refute has_element?(view, "#upstream-account-#{identity.id}-limit-primary_5h-count")
 
     assert has_element?(
              view,
@@ -3599,7 +3597,9 @@ defmodule CodexPoolerWeb.Admin.UpstreamsLiveTest do
            )
 
     refute has_element?(view, "#upstream-account-#{browser_identity.id}-limit-primary_5h")
+
     refute has_element?(view, "#upstream-account-#{browser_identity.id}-limit-weekly-count")
+
     assert has_element?(view, "#upstream-account-#{browser_identity.id}-limit-weekly-reset")
 
     assert has_element?(
@@ -4004,6 +4004,7 @@ defmodule CodexPoolerWeb.Admin.UpstreamsLiveTest do
                }
              ])
 
+    put_credit_balance_snapshot!(identity, 601, fresh_observed_at)
     stale_window = Enum.find(windows, &(&1.quota_key == "gpt_reserve"))
     assert %AccountQuotaWindow{} = stale_window
 
@@ -4207,6 +4208,14 @@ defmodule CodexPoolerWeb.Admin.UpstreamsLiveTest do
                now
              )
 
+    for {identity, balance} <- [
+          {quota_identity, 601},
+          {credit_identity, 500},
+          {depleted_identity, 0}
+        ] do
+      put_credit_balance_snapshot!(identity, balance, now)
+    end
+
     {:ok, view, _html} = live(conn, ~p"/admin/upstreams")
 
     quota_selector = "#upstream-account-#{quota_identity.id}-limit-primary_30d"
@@ -4252,12 +4261,8 @@ defmodule CodexPoolerWeb.Admin.UpstreamsLiveTest do
 
     refute render(view) =~ "0 / 601 credits"
 
-    assert has_element?(view, "#{unreported_selector}-count", "credits not reported")
-
-    assert has_element?(
-             view,
-             "#{unreported_selector}-count[title='Credit balance was not reported for this quota sample.'][aria-label='Credit balance was not reported for this quota sample.']"
-           )
+    refute has_element?(view, "#{unreported_selector}-count")
+    assert has_element?(view, "#{unreported_selector}-reset")
   end
 
   test "Spark zero-use quota stays visible while evidence sources change", %{
@@ -4671,6 +4676,7 @@ defmodule CodexPoolerWeb.Admin.UpstreamsLiveTest do
                }
              ])
 
+    put_credit_balance_snapshot!(identity, 3817, now)
     [account] = UpstreamAccountsReadModel.list_visible_accounts(scope, [pool])
     monthly = Enum.find(account.quota_limits, &(&1.key == :primary_30d))
 
@@ -6669,10 +6675,9 @@ defmodule CodexPoolerWeb.Admin.UpstreamsLiveTest do
 
     assert has_element?(view, "#upstream-account-#{identity.id}-limit-primary_5h", "89%")
 
-    refute has_element?(
+    assert has_element?(
              view,
-             "#upstream-account-#{identity.id}-limit-primary_5h",
-             "not reported"
+             "#upstream-account-#{identity.id}-limit-primary_5h-progress[value='89']"
            )
   end
 
@@ -9255,6 +9260,20 @@ defmodule CodexPoolerWeb.Admin.UpstreamsLiveTest do
       )
 
     window
+  end
+
+  defp put_credit_balance_snapshot!(identity, balance, observed_at) do
+    identity = Repo.reload!(identity)
+
+    metadata =
+      CreditBalanceStore.transition(
+        identity.metadata,
+        %{"credits" => %{"balance" => balance}},
+        observed_at,
+        CredentialFencing.credential_epoch(identity)
+      )
+
+    identity |> Ecto.Changeset.change(metadata: metadata) |> Repo.update!()
   end
 
   defp worker_name(worker), do: worker |> Atom.to_string() |> String.replace_prefix("Elixir.", "")

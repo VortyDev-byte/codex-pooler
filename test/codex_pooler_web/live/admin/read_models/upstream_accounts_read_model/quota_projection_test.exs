@@ -1169,7 +1169,7 @@ defmodule CodexPoolerWeb.Admin.UpstreamAccountsReadModel.QuotaProjectionTest do
   end
 
   @tag :quota_account_projection
-  test "omitted provider credits render an explicit unavailable label" do
+  test "omitted provider credits leave the credit footer absent" do
     observed_at = DateTime.utc_now() |> DateTime.truncate(:microsecond)
 
     row =
@@ -1190,10 +1190,8 @@ defmodule CodexPoolerWeb.Admin.UpstreamAccountsReadModel.QuotaProjectionTest do
       |> QuotaProjection.quota_limit_rows(DateTimeDisplay.preferences_for_user(nil), observed_at)
       |> Enum.find(&(&1.key == :weekly))
 
-    assert secondary.count_label == "credits not reported"
-
-    assert secondary.count_title ==
-             "Credit balance was not reported for this quota sample."
+    assert is_nil(secondary.count_label)
+    assert is_nil(secondary.count_title)
 
     refute secondary.burning_credits
   end

@@ -13,6 +13,7 @@ defmodule CodexPooler.Upstreams.Reconciliation.PoolReconciliation do
   alias CodexPooler.Upstreams.Lifecycle.CredentialFencing
   alias CodexPooler.Upstreams.Quota
   alias CodexPooler.Upstreams.Quota.AccountAvailabilityStore
+  alias CodexPooler.Upstreams.Quota.CreditBalanceStore
   alias CodexPooler.Upstreams.Reconciliation.UsageProbe
   alias CodexPooler.Upstreams.SavedResets
   alias CodexPooler.Upstreams.SavedResets.Convergence
@@ -720,6 +721,16 @@ defmodule CodexPooler.Upstreams.Reconciliation.PoolReconciliation do
 
         identity =
           persist_account_availability(identity, windows, account_availability, observed_at)
+
+        metadata =
+          CreditBalanceStore.transition(
+            identity.metadata,
+            payload,
+            observed_at,
+            CredentialFencing.credential_epoch(identity)
+          )
+
+        identity = identity |> Ecto.Changeset.change(metadata: metadata) |> Repo.update!()
 
         {:ok,
          %{

@@ -9,6 +9,7 @@ defmodule CodexPooler.Upstreams.Quota.RoutingQuotaSnapshot do
   alias CodexPooler.Upstreams.Quota.{
     AccountAvailabilityStore,
     AccountQuotaWindow,
+    CreditBalanceStore,
     WindowSelector
   }
 
@@ -22,13 +23,15 @@ defmodule CodexPooler.Upstreams.Quota.RoutingQuotaSnapshot do
     :credential_epoch,
     :as_of
   ]
-  defstruct @enforce_keys
+  defstruct @enforce_keys ++ [credit_balance: nil, credit_balance_reported?: false]
 
   @type t :: %__MODULE__{
           upstream_identity_id: Ecto.UUID.t(),
           raw_windows: [AccountQuotaWindow.t()],
           availability: AccountAvailabilityStore.Snapshot.t() | nil,
           credential_epoch: pos_integer(),
+          credit_balance: CreditBalanceStore.snapshot() | nil,
+          credit_balance_reported?: boolean(),
           as_of: DateTime.t()
         }
 
@@ -47,6 +50,8 @@ defmodule CodexPooler.Upstreams.Quota.RoutingQuotaSnapshot do
       upstream_identity_id: identity.id,
       raw_windows: raw_windows,
       availability: decode_availability(identity.metadata),
+      credit_balance: credit_balance(identity.metadata, as_of),
+      credit_balance_reported?: CreditBalanceStore.reported?(identity.metadata),
       credential_epoch:
         identity.metadata
         |> CredentialFencing.initialize_metadata()
@@ -119,6 +124,8 @@ defmodule CodexPooler.Upstreams.Quota.RoutingQuotaSnapshot do
          upstream_identity_id: identity_id,
          raw_windows: Enum.flat_map(identity_rows, &present_window/1),
          availability: decode_availability(metadata),
+         credit_balance: credit_balance(metadata, as_of),
+         credit_balance_reported?: CreditBalanceStore.reported?(metadata),
          credential_epoch:
            metadata |> CredentialFencing.initialize_metadata() |> Map.fetch!("credential_epoch"),
          as_of: as_of
@@ -128,6 +135,11 @@ defmodule CodexPooler.Upstreams.Quota.RoutingQuotaSnapshot do
 
   defp present_window(%{window: %AccountQuotaWindow{} = window}), do: [window]
   defp present_window(%{window: nil}), do: []
+
+  defp credit_balance(metadata, as_of) do
+    epoch = metadata |> CredentialFencing.initialize_metadata() |> Map.fetch!("credential_epoch")
+    CreditBalanceStore.current(metadata, epoch, as_of)
+  end
 
   defp decode_availability(metadata) do
     case AccountAvailabilityStore.load(metadata) do

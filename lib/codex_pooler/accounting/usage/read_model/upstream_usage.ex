@@ -26,8 +26,8 @@ defmodule CodexPooler.Accounting.UsageReadModel.UpstreamUsage do
     pool_id = id_for(pool_or_id)
 
     case best_codex_usage_identity_for_pool(pool_id, opts) do
-      {%UpstreamIdentity{} = identity, _assignment, windows} ->
-        build_codex_usage_for_identity(identity, windows, opts)
+      {%UpstreamIdentity{} = identity, _assignment, snapshot} ->
+        build_codex_usage_for_identity(identity, snapshot, opts)
 
       nil ->
         {:error, accounting_error(:no_upstream_usage, "no upstream usage is available")}
@@ -91,7 +91,8 @@ defmodule CodexPooler.Accounting.UsageReadModel.UpstreamUsage do
   @spec v1_upstream_limits_for_pool(term(), DateTime.t(), keyword()) :: [map()]
   def v1_upstream_limits_for_pool(pool_id, as_of, opts) when is_binary(pool_id) do
     case best_codex_usage_identity_for_pool(pool_id, Keyword.put(opts, :as_of, as_of)) do
-      {%UpstreamIdentity{}, %PoolUpstreamAssignment{}, windows} ->
+      {%UpstreamIdentity{}, %PoolUpstreamAssignment{}, snapshot} ->
+        windows = RoutingQuotaSnapshot.effective_windows(snapshot)
         {primary, secondary} = UsageResponses.account_usage_windows(windows, as_of)
 
         [primary, secondary]
@@ -114,18 +115,34 @@ defmodule CodexPooler.Accounting.UsageReadModel.UpstreamUsage do
       |> Map.fetch!(identity.id)
 
     if explicit_usage_snapshot_available?(snapshot) do
-      windows = RoutingQuotaSnapshot.effective_windows(snapshot)
-      build_codex_usage_for_identity(identity, windows, Keyword.put(opts, :as_of, as_of))
+      build_codex_usage_for_identity(identity, snapshot, Keyword.put(opts, :as_of, as_of))
     else
       {:error, accounting_error(:no_upstream_usage, "no upstream usage is available")}
     end
   end
 
-  defp build_codex_usage_for_identity(%UpstreamIdentity{} = identity, windows, opts) do
+  defp build_codex_usage_for_identity(%UpstreamIdentity{} = identity, snapshot, opts) do
     as_of = Keyword.get(opts, :as_of, now())
+    windows = RoutingQuotaSnapshot.effective_windows(snapshot)
     {primary, secondary} = UsageResponses.account_usage_windows(windows, as_of)
     additional_rate_limits = UsageResponses.additional_codex_rate_limits(windows, as_of)
-    credits = UsageResponses.codex_credits(primary, secondary)
+
+    credits =
+      case {snapshot.credit_balance_reported?, snapshot.credit_balance} do
+        {false, _unreported} ->
+          UsageResponses.codex_credits(primary, secondary)
+
+        {true, %{balance: balance, has_credits: has_credits, unlimited: unlimited}}
+        when is_boolean(has_credits) and is_boolean(unlimited) ->
+          %{
+            balance: Integer.to_string(balance),
+            has_credits: has_credits,
+            unlimited: unlimited
+          }
+
+        _unavailable ->
+          nil
+      end
 
     usage =
       %{
@@ -165,7 +182,7 @@ defmodule CodexPooler.Accounting.UsageReadModel.UpstreamUsage do
     |> Enum.max_by(&codex_usage_candidate_rank(&1, opts), fn -> nil end)
     |> case do
       {identity, assignment, snapshot} ->
-        {identity, assignment, RoutingQuotaSnapshot.effective_windows(snapshot)}
+        {identity, assignment, snapshot}
 
       nil ->
         nil
