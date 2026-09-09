@@ -1,0 +1,4 @@
+volumes:
+  codex-pooler-postgres:
+    external: true
+    name: vortex-codex-pooler-postgres

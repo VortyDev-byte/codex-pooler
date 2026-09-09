@@ -124,6 +124,7 @@ defmodule CodexPooler.Gateway.Runtime.Dispatch.PreDispatch do
          :ok <- validate_input_shape_once(payload, request_options, validation_authority),
          {:ok, request_options, effective_model_serving_modes} <-
            resolve_model_serving_modes(
+             payload,
              auth,
              model,
              visible_model_context,
@@ -584,6 +585,7 @@ defmodule CodexPooler.Gateway.Runtime.Dispatch.PreDispatch do
   defp policy_visible_models(models, nil) when is_list(models), do: visible_models(models)
 
   defp resolve_model_serving_modes(
+         payload,
          auth,
          %Model{} = effective_model,
          visible_model_context,
@@ -613,6 +615,8 @@ defmodule CodexPooler.Gateway.Runtime.Dispatch.PreDispatch do
         {model.exposed_model_id, resolution}
       end)
 
+    resolutions = image_tool_full_mode(resolutions, effective_model, payload)
+
     effective_modes =
       Map.new(resolutions, fn
         {model_identifier, {:ok, resolution}} ->
@@ -639,6 +643,23 @@ defmodule CodexPooler.Gateway.Runtime.Dispatch.PreDispatch do
         )
     end
   end
+
+  # Native image tools must remain executable top-level tools, not Lite declarations.
+  # This affects this request only; no pool/model configuration is modified.
+  defp image_tool_full_mode(resolutions, model, %{"tools" => tools}) when is_list(tools) do
+    if Enum.any?(tools, &match?(%{"type" => "image_generation"}, &1)) do
+      case Map.get(resolutions, model.exposed_model_id) do
+        {:ok, _resolution} ->
+          Map.put(resolutions, model.exposed_model_id,
+            {:ok, %{configured_mode: "full", effective_mode: "full", source: "override"}})
+        _ -> resolutions
+      end
+    else
+      resolutions
+    end
+  end
+
+  defp image_tool_full_mode(resolutions, _model, _payload), do: resolutions
 
   defp resolve_visible_image_host_serving_mode(
          overrides,

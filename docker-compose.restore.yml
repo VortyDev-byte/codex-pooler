@@ -1,0 +1,10 @@
+volumes:
+  codex-pooler-postgres:
+    external: true
+    name: vortex-codex-pooler-postgres
+
+# Image-tool-only fix for the installed 0.7.1 release; accounts/volumes unchanged.
+services:
+  app:
+    volumes:
+      - ./local-image-support/Elixir.CodexPooler.Gateway.Runtime.Dispatch.PreDispatch.beam:/app/lib/codex_pooler-0.7.1/ebin/Elixir.CodexPooler.Gateway.Runtime.Dispatch.PreDispatch.beam:ro
