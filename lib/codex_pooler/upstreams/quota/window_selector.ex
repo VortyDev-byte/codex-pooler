@@ -193,7 +193,6 @@ defmodule CodexPooler.Upstreams.Quota.WindowSelector do
   defp logical_selection_score(%Quota.AccountQuotaWindow{} = window, as_of) do
     {
       fresh_rank(window, as_of),
-      timestamp_rank(window.observed_at),
       measurement_rank(window),
       pressure_rank(window),
       usable_rank(window, as_of),
@@ -211,8 +210,6 @@ defmodule CodexPooler.Upstreams.Quota.WindowSelector do
 
   defp selection_score(%Quota.AccountQuotaWindow{} = window, as_of, extra_rank) do
     {
-      fresh_rank(window, as_of),
-      timestamp_rank(window.observed_at),
       usable_rank(window, as_of),
       extra_rank.(window),
       measurement_rank(window),
