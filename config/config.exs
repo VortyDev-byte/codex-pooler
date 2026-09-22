@@ -37,7 +37,7 @@ jobs_schedule = [
       CodexPooler.Jobs.CatalogSyncEnqueueWorker
     ],
     scheduled_worker: CodexPooler.Jobs.CatalogSyncEnqueueWorker,
-    cadence: %{label: "Every 30 min", cron: "*/30 * * * *"}
+    cadence: %{label: "Every 5 min", cron: "*/5 * * * *"}
   },
   %{
     key: :pricing_import,

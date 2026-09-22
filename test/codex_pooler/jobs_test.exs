@@ -47,7 +47,7 @@ defmodule CodexPooler.JobsTest do
                :timer.seconds(55)
 
       assert Schedule.oban_crontab() == [
-               {"*/30 * * * *", CatalogSyncEnqueueWorker},
+               {"*/5 * * * *", CatalogSyncEnqueueWorker},
                {"0 * * * *", PricingImportWorker},
                {"* * * * *", AccountReconciliationEnqueueWorker},
                {"*/5 * * * *", AlertEvaluationEnqueueWorker},
@@ -60,8 +60,8 @@ defmodule CodexPooler.JobsTest do
       worker_groups = Schedule.worker_groups()
 
       assert Enum.find(worker_groups, &(&1.key == :catalog_sync)).cadence == %{
-               label: "Every 30 min",
-               cron: "*/30 * * * *"
+               label: "Every 5 min",
+               cron: "*/5 * * * *"
              }
 
       assert Enum.find(worker_groups, &(&1.key == :token_refresh)).cadence == %{

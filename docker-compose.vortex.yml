@@ -16,9 +16,13 @@ services:
       context: .
       network: host
     image: vortex-codex-pooler:local
+    environment:
+      # This single-container installation must run both cron and job workers.
+      OBAN_MODE: all
     ports:
       - "4100:4000"
 
 volumes:
   codex-pooler-postgres:
+    external: true
     name: vortex-codex-pooler-postgres

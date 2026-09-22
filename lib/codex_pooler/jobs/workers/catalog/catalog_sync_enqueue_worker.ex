@@ -10,7 +10,7 @@ defmodule CodexPooler.Jobs.CatalogSyncEnqueueWorker do
     unique: [
       fields: [:worker, :queue],
       states: :incomplete,
-      period: {30, :minutes}
+      period: {5, :minutes}
     ]
 
   alias CodexPooler.Jobs
