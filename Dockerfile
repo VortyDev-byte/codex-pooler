@@ -62,6 +62,13 @@ COPY assets assets
 COPY lib lib
 COPY priv priv
 
+# Install the remaining asset binary using the same reliable network path.
+RUN --network=host for attempt in 1 2 3; do \
+    mix esbuild.install && exit 0; \
+    if [ "${attempt}" -eq 3 ]; then exit 1; fi; \
+    sleep "$((attempt * 2))"; \
+  done
+
 RUN mix compile --warnings-as-errors \
   && mix quality.xref \
   && mix assets.deploy \
