@@ -41,6 +41,8 @@ defmodule CodexPooler.Gateway.Routing.CircuitHealthEquivalenceTest do
       {:open_future, [status: "open", next_probe_at: DateTime.add(observed_at, 3_600, :second)]},
       {:open_past, [status: "open", next_probe_at: DateTime.add(observed_at, -3_600, :second)]},
       {:open_nil_next_probe, [status: "open"]},
+      {:open_stale_nil_next_probe,
+       [status: "open", updated_at: DateTime.add(observed_at, -3_600, :second)]},
       {:half_open_free,
        [status: "half_open", metadata: %{"probe_in_flight_count" => "malformed"}]},
       {:half_open_saturated_fresh,
@@ -81,6 +83,11 @@ defmodule CodexPooler.Gateway.Routing.CircuitHealthEquivalenceTest do
       assert CircuitHealth.blocked?(state, settings, observed_at) == not snapshot.eligible?,
              "classification diverged for #{name}"
     end
+
+    {assignment, _state} = scenario_rows.open_stale_nil_next_probe
+    assert snapshots[assignment.id].eligible?
+    assert {:ok, %{admission: :probe}} = CircuitState.begin_attempt(
+      %{pool: pool, api_key: api_key}, model, assignment, @route_class)
   end
 
   @tag :route_filtering_regression

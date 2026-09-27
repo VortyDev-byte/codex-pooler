@@ -74,6 +74,35 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.ExecutorTest do
     assert FakeUpstream.count(upstream) == 0
   end
 
+  test "a new request process reuses the persisted lease and retries after its expiry" do
+    upstream = start_upstream(FakeUpstream.json_response(%{}))
+    setup = gateway_setup(upstream, quota?: false)
+    plan = stale_plan(setup)
+    assert {:error, _} = Executor.refresh_stale_candidates(plan)
+    count = FakeUpstream.count(upstream)
+
+    assert {:error, _} = Task.async(fn -> Executor.refresh_stale_candidates(plan) end) |> Task.await()
+    assert FakeUpstream.count(upstream) == count
+    Repo.query!("UPDATE quota_refresh_leases SET next_refresh_at = clock_timestamp() - interval '1 second'")
+    assert {:error, _} = Task.async(fn -> Executor.refresh_stale_candidates(plan) end) |> Task.await()
+    assert FakeUpstream.count(upstream) > count
+  end
+
+  test "backed off candidates do not consume the refresh budget or starve a third identity" do
+    upstream = start_upstream(FakeUpstream.json_response(%{}))
+    setups = for _ <- 1..3, do: gateway_setup(upstream, quota?: false)
+    plans = Enum.map(setups, &stale_plan/1)
+    for plan <- Enum.take(plans, 2), do: Executor.refresh_stale_candidates(plan)
+    before_count = FakeUpstream.count(upstream)
+    candidates = Enum.flat_map(plans, & &1.refreshable_candidates)
+    first = hd(plans)
+    plan = %{first | refreshable_candidates: candidates,
+      filter_input: %{first.filter_input | candidates: candidates}}
+    assert {:error, _} = Executor.refresh_stale_candidates(plan)
+    assert FakeUpstream.count(upstream) > before_count
+    assert %{rows: [[3]]} = Repo.query!("SELECT count(*) FROM quota_refresh_leases")
+  end
+
   test "another database session holding the refresh lock prevents upstream work" do
     upstream = start_upstream(FakeUpstream.json_response(%{}))
     setup = gateway_setup(upstream, quota?: false)

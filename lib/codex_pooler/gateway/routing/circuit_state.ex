@@ -495,8 +495,8 @@ defmodule CodexPooler.Gateway.Routing.CircuitState do
     end
   end
 
-  defp begin_state(%RoutingCircuitState{status: @open_status}, _settings, _now),
-    do: Repo.rollback(:routing_circuit_open)
+  defp begin_state(%RoutingCircuitState{status: @open_status} = state, settings, now),
+    do: begin_state(%{state | next_probe_at: CircuitHealth.recovery_probe_at(state, settings)}, settings, now)
 
   defp begin_state(%RoutingCircuitState{status: @half_open_status} = state, settings, now) do
     stale? = CircuitHealth.probe_stale?(state, settings, now)
