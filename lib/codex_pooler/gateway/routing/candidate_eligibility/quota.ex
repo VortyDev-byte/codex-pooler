@@ -430,17 +430,27 @@ defmodule CodexPooler.Gateway.Routing.CandidateEligibility.Quota do
     reasons != [] and Enum.all?(reasons, &stale_quota_refreshable_reason?/1)
   end
 
-  defp stale_quota_refreshable_reason?(%{code: "quota_window_unusable"} = reason),
+  defp stale_quota_refreshable_reason?(%{code: code} = reason)
+       when code in ["quota_window_unusable", "quota_weekly_exhausted"],
     do: stale_quota_refreshable_reason_codes?(Map.get(reason, :reason_codes))
 
-  defp stale_quota_refreshable_reason?(%{"code" => "quota_window_unusable"} = reason),
+  defp stale_quota_refreshable_reason?(%{"code" => code} = reason)
+       when code in ["quota_window_unusable", "quota_weekly_exhausted"],
     do: stale_quota_refreshable_reason_codes?(Map.get(reason, "reason_codes"))
+
+  defp stale_quota_refreshable_reason?(%{code: code})
+       when code in ["quota_evidence_missing", "quota_evidence_out_of_scope",
+                    "quota_account_primary_missing", "quota_evidence_unusable"], do: true
 
   defp stale_quota_refreshable_reason?(_reason), do: false
 
   defp stale_quota_refreshable_reason_codes?(reason_codes) when is_list(reason_codes) do
-    "not_fresh" in reason_codes and
-      not Enum.any?(reason_codes, &(&1 in ["reset_missing", "exhausted"]))
+    # Refresh is a metadata read, not permission to spend quota. An ended
+    # exhausted window must be revalidated; a live exhausted window must wait.
+    "expired" in reason_codes or
+      ("exhausted" not in reason_codes and
+         Enum.any?(reason_codes, &(&1 in ["not_fresh", "reset_missing"]))) or
+      "availability_revalidation_due" in reason_codes
   end
 
   defp stale_quota_refreshable_reason_codes?(_reason_codes), do: false
@@ -604,6 +614,8 @@ defmodule CodexPooler.Gateway.Routing.CandidateEligibility.Quota do
       :source,
       :source_precision,
       :freshness_state,
+      :observed_at,
+      :evidence_age_seconds,
       :reset_at
     ])
     |> Map.new(fn {key, value} -> {to_string(key), value} end)

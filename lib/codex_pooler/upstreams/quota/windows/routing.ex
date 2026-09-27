@@ -56,7 +56,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows.Routing do
         snapshot.credential_epoch,
         snapshot.as_of
       ) ->
-        availability_exclusion(:blocked, ordinary.selection)
+        blocked_availability_exclusion(snapshot, ordinary.selection)
 
       ordinary.eligible? ->
         ordinary
@@ -277,6 +277,8 @@ defmodule CodexPooler.Upstreams.Quota.Windows.Routing do
       source: window.source,
       source_precision: window.source_precision,
       freshness_state: Evidence.current_freshness_state(window, timestamp),
+      observed_at: iso8601_or_nil(window.observed_at),
+      evidence_age_seconds: evidence_age(window.observed_at, timestamp),
       reset_at: iso8601_or_nil(window.reset_at)
     }
   end
@@ -403,6 +405,28 @@ defmodule CodexPooler.Upstreams.Quota.Windows.Routing do
       ]
     }
   end
+
+  defp blocked_availability_exclusion(snapshot, selection) do
+    result = availability_exclusion(:blocked, selection)
+    age = evidence_age(snapshot.availability.observed_at, snapshot.as_of)
+    reset_passed? = Enum.any?(selection.routing_windows, &Evidence.expired?(&1, snapshot.as_of))
+
+    reasons =
+      if reset_passed? or age > Evidence.freshness_ttl_seconds(),
+        do: ["exhausted", "availability_revalidation_due"],
+        else: ["exhausted"]
+
+    %{result | exclusions: Enum.map(result.exclusions, &Map.merge(&1, %{
+      reason_codes: reasons,
+      observed_at: iso8601_or_nil(snapshot.availability.observed_at),
+      evidence_age_seconds: age
+    }))}
+  end
+
+  defp evidence_age(%DateTime{} = observed_at, timestamp),
+    do: max(DateTime.diff(timestamp, observed_at, :second), 0)
+
+  defp evidence_age(_observed_at, _timestamp), do: nil
 
   defp credit_backed_probe_selection?(
          %{secondary: %Quota.AccountQuotaWindow{} = secondary, blocked_windows: blocked_windows},

@@ -12,13 +12,18 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
   alias CodexPooler.Upstreams.Schemas.PoolUpstreamAssignment
 
   @quota_refresh_timeout_ms :timer.seconds(3)
+  @refresh_backoff_seconds 30
 
   @spec refresh_stale_candidates(CandidateEligibility.quota_refresh_plan()) ::
           Plan.filter_after_refresh_result()
   def refresh_stale_candidates(refresh_plan) when is_map(refresh_plan) do
     refresh_plan
     |> Plan.refresh_candidates()
-    |> Enum.each(fn {assignment, _identity} -> refresh_assignment_once(assignment) end)
+    |> Enum.reduce_while(0, fn {assignment, _identity}, attempted ->
+      result = refresh_assignment_once(assignment)
+      attempted = if result in [:already_refreshing, :backoff], do: attempted, else: attempted + 1
+      if attempted >= 2, do: {:halt, attempted}, else: {:cont, attempted}
+    end)
 
     Plan.filter_after_refresh(refresh_plan)
   end
@@ -62,9 +67,24 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
   end
 
   defp with_advisory_lock(%PoolUpstreamAssignment{} = assignment, lock_key) do
-    Upstreams.reconcile_pool_account(assignment.pool_id, assignment.id,
-      receive_timeout: @quota_refresh_timeout_ms
-    )
+    # A durable identity-scoped lease bounds retries across requests, replicas,
+    # assignments and process restarts. No quota protection is bypassed.
+    case Repo.query!("""
+         INSERT INTO quota_refresh_leases (upstream_identity_id, next_refresh_at)
+         VALUES ($1, clock_timestamp() + $2 * interval '1 second')
+         ON CONFLICT (upstream_identity_id) DO UPDATE
+         SET next_refresh_at = EXCLUDED.next_refresh_at
+         WHERE quota_refresh_leases.next_refresh_at <= clock_timestamp()
+         RETURNING upstream_identity_id
+         """, [Ecto.UUID.dump!(assignment.upstream_identity_id), @refresh_backoff_seconds]) do
+      %{num_rows: 1} ->
+        Logger.debug("quota revalidation started assignment_id=#{assignment.id}")
+        Upstreams.reconcile_pool_account(assignment.pool_id, assignment.id,
+          receive_timeout: @quota_refresh_timeout_ms
+        )
+
+      _backoff -> :backoff
+    end
   after
     unlock_advisory_lock(assignment, lock_key)
   end
@@ -81,6 +101,7 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
 
   defp log_refresh_result({:ok, _result}, _assignment), do: :ok
   defp log_refresh_result(:already_refreshing, _assignment), do: :already_refreshing
+  defp log_refresh_result(:backoff, _assignment), do: :backoff
 
   defp log_refresh_result({:error, reason}, %PoolUpstreamAssignment{} = assignment) do
     log_refresh_failure(:error, reason, assignment)
