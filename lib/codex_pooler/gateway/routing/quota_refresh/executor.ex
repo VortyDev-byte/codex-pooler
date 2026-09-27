@@ -17,9 +17,9 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
   @spec refresh_stale_candidates(CandidateEligibility.quota_refresh_plan()) ::
           Plan.filter_after_refresh_result()
   def refresh_stale_candidates(refresh_plan) when is_map(refresh_plan) do
-    refresh_plan
+    {_attempted, contended?} = refresh_plan
     |> Plan.refresh_candidates()
-    |> Enum.reduce_while(0, fn {assignment, _identity}, attempted ->
+    |> Enum.reduce_while({0, false}, fn {assignment, _identity}, {attempted, contended?} ->
       result = refresh_assignment_once(assignment)
       if result not in [:already_refreshing, :backoff] do
         Logger.debug(fn ->
@@ -29,14 +29,27 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
         end)
       end
       attempted = if result in [:already_refreshing, :backoff], do: attempted, else: attempted + 1
-      if attempted >= 2, do: {:halt, attempted}, else: {:cont, attempted}
+      state = {attempted, contended? or result == :already_refreshing}
+      if attempted >= 2, do: {:halt, state}, else: {:cont, state}
     end)
 
-    result = Plan.filter_after_refresh(refresh_plan)
+    result = await_refresh_result(refresh_plan, if(contended?, do: 10, else: 0))
     Logger.debug(fn ->
       "quota revalidation result=#{if elem(result, 0) == :ok, do: "eligible", else: "blocked"}"
     end)
     result
+  end
+
+  # Contenders share the winner's committed evidence instead of immediately
+  # returning a 503 during a reset. Waiting is bounded and never sends traffic.
+  defp await_refresh_result(plan, remaining) do
+    case Plan.filter_after_refresh(plan) do
+      {:error, _} when remaining > 0 and plan.refreshable_candidates != [] ->
+        Process.sleep(100)
+        await_refresh_result(plan, remaining - 1)
+
+      result -> result
+    end
   end
 
   defp refresh_assignment_once(%PoolUpstreamAssignment{} = assignment) do
