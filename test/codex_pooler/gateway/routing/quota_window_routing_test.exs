@@ -68,17 +68,14 @@ defmodule CodexPooler.Gateway.Routing.QuotaWindowRoutingTest do
       end
     end
 
-    test "aged and within-skew future blockers retain the same precedence" do
+    test "aged blockers stay blocked but become refreshable; within-skew blockers stay blocked" do
       observed_times = [
         DateTime.add(@observed_at, -2 * Evidence.freshness_ttl_seconds(), :second),
         DateTime.add(@observed_at, Evidence.future_observed_skew_seconds(), :second)
       ]
 
       for observed_at <- observed_times, windows <- [[], [account_primary_window()]] do
-        assert %{
-                 eligible?: false,
-                 exclusions: [%{reason_codes: ["exhausted"]}]
-               } =
+        assert %{eligible?: false, exclusions: [%{reason_codes: reasons}]} =
                  Windows.routing_quota_eligibility_from_snapshot(
                    routing_snapshot(:blocked, windows, observed_at: observed_at),
                    routing_scope_opts()
@@ -94,6 +91,9 @@ defmodule CodexPooler.Gateway.Routing.QuotaWindowRoutingTest do
                  routing_snapshot(:blocked, [account_primary_window()], observed_at: future_at),
                  routing_scope_opts()
                )
+        assert "exhausted" in reasons
+        assert ("availability_revalidation_due" in reasons) ==
+                 (DateTime.diff(@observed_at, observed_at) > Evidence.freshness_ttl_seconds())
 
       assert %{
                eligible?: false,

@@ -7,10 +7,10 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.PlanTest do
   alias CodexPooler.Gateway.Routing.QuotaRefresh.Plan
   alias CodexPooler.Upstreams.Schemas.PoolUpstreamAssignment
 
-  test "refresh is bounded to two candidates and preserves normal ordering" do
+  test "planning preserves candidates so cooling down accounts cannot starve later accounts" do
     candidates = candidates()
     plan = plan(candidates, RequestOptions.build(%{}, "/backend-api/codex/responses", %{}))
-    assert Plan.refresh_candidates(plan) == Enum.take(candidates, 2)
+    assert Plan.refresh_candidates(plan) == candidates
   end
 
   test "the session assignment is refreshed first even outside the normal refresh budget" do
@@ -24,7 +24,7 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.PlanTest do
       )
 
     assert Plan.refresh_candidates(plan(candidates, options)) ==
-             [List.last(candidates), hd(candidates)]
+             [List.last(candidates) | Enum.take(candidates, 2)]
   end
 
   test "an absent session assignment does not reorder or admit candidates" do
@@ -36,7 +36,7 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.PlanTest do
         codex_session: %CodexSession{pool_upstream_assignment_id: Ecto.UUID.generate()}
       )
 
-    assert Plan.refresh_candidates(plan(candidates, options)) == Enum.take(candidates, 2)
+    assert Plan.refresh_candidates(plan(candidates, options)) == candidates
     assert Plan.refresh_candidates(plan([], options)) == []
   end
 

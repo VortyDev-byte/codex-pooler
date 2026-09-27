@@ -18,6 +18,62 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.ExecutorTest do
   alias CodexPooler.Upstreams.Quota.RoutingQuotaSnapshot
   alias CodexPooler.Upstreams.Quota.Windows, as: QuotaWindows
 
+  test "expired exhausted evidence revalidates without restart and reloads persisted quota" do
+    upstream = start_upstream(FakeUpstream.json_response(%{
+      "rate_limit" => %{"allowed" => true, "limit_reached" => false,
+        "primary_window" => %{"used_percent" => 5, "limit_window_seconds" => 18000,
+          "reset_after_seconds" => 18000}}
+    }))
+    setup = gateway_setup(upstream, quota?: false)
+    plan = stale_plan(setup)
+    import Ecto.Query
+    from(w in CodexPooler.Upstreams.Quota.AccountQuotaWindow,
+      where: w.upstream_identity_id == ^setup.identity.id)
+    |> Repo.update_all(set: [used_percent: Decimal.new(100),
+      reset_at: DateTime.add(DateTime.utc_now(), -1, :second)])
+
+    assert {:refreshable_quota, plan} =
+      CandidateEligibility.filter_quota_eligible_candidates(plan.filter_input)
+    assert length(plan.refreshable_candidates) == 1
+    assert {:ok, [_], _} = Executor.refresh_stale_candidates(plan)
+    assert {:ok, [_], _} = CandidateEligibility.filter_quota_eligible_candidates(plan.filter_input)
+    assert FakeUpstream.count(upstream) > 0
+  end
+
+  test "missing metadata refresh is durable and repeated empty responses are backed off" do
+    upstream = start_upstream(FakeUpstream.json_response(%{}))
+    setup = gateway_setup(upstream, quota?: false)
+    plan = stale_plan(setup)
+    import Ecto.Query
+    from(w in CodexPooler.Upstreams.Quota.AccountQuotaWindow,
+      where: w.upstream_identity_id == ^setup.identity.id) |> Repo.delete_all()
+    assert {:refreshable_quota, plan} =
+      CandidateEligibility.filter_quota_eligible_candidates(plan.filter_input)
+    assert length(plan.refreshable_candidates) == 1
+    assert {:error, _} = Executor.refresh_stale_candidates(plan)
+    count = FakeUpstream.count(upstream)
+    assert count > 0
+    assert {:error, _} = Executor.refresh_stale_candidates(plan)
+    assert FakeUpstream.count(upstream) == count
+    assert %{rows: [[1]]} = Repo.query!("SELECT count(*) FROM quota_refresh_leases")
+  end
+
+  test "unexpired exhausted quota is never polled by request recovery" do
+    upstream = start_upstream(FakeUpstream.json_response(%{}))
+    setup = gateway_setup(upstream, quota?: false)
+    plan = stale_plan(setup)
+    import Ecto.Query
+    from(w in CodexPooler.Upstreams.Quota.AccountQuotaWindow,
+      where: w.upstream_identity_id == ^setup.identity.id)
+    |> Repo.update_all(set: [used_percent: Decimal.new(100),
+      reset_at: DateTime.add(DateTime.utc_now(), 3600, :second)])
+    assert {:refreshable_quota, plan} =
+      CandidateEligibility.filter_quota_eligible_candidates(plan.filter_input)
+    assert plan.refreshable_candidates == []
+    assert {:error, %{code: "quota_exhausted"}} = Executor.refresh_stale_candidates(plan)
+    assert FakeUpstream.count(upstream) == 0
+  end
+
   test "another database session holding the refresh lock prevents upstream work" do
     upstream = start_upstream(FakeUpstream.json_response(%{}))
     setup = gateway_setup(upstream, quota?: false)
