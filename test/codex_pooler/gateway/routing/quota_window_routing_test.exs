@@ -80,6 +80,9 @@ defmodule CodexPooler.Gateway.Routing.QuotaWindowRoutingTest do
                    routing_snapshot(:blocked, windows, observed_at: observed_at),
                    routing_scope_opts()
                  )
+        assert "exhausted" in reasons
+        assert ("availability_revalidation_due" in reasons) ==
+                 (DateTime.diff(@observed_at, observed_at) > Evidence.freshness_ttl_seconds())
       end
     end
 
@@ -91,9 +94,6 @@ defmodule CodexPooler.Gateway.Routing.QuotaWindowRoutingTest do
                  routing_snapshot(:blocked, [account_primary_window()], observed_at: future_at),
                  routing_scope_opts()
                )
-        assert "exhausted" in reasons
-        assert ("availability_revalidation_due" in reasons) ==
-                 (DateTime.diff(@observed_at, observed_at) > Evidence.freshness_ttl_seconds())
 
       assert %{
                eligible?: false,

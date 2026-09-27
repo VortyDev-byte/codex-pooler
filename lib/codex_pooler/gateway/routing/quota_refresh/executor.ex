@@ -21,11 +21,22 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
     |> Plan.refresh_candidates()
     |> Enum.reduce_while(0, fn {assignment, _identity}, attempted ->
       result = refresh_assignment_once(assignment)
+      if result not in [:already_refreshing, :backoff] do
+        Logger.debug(fn ->
+          exclusion = Enum.find(refresh_plan.candidate_exclusions,
+            &(&1.pool_upstream_assignment_id == assignment.id))
+          "quota revalidation assignment_id=#{assignment.id} evidence=#{inspect(exclusion)}"
+        end)
+      end
       attempted = if result in [:already_refreshing, :backoff], do: attempted, else: attempted + 1
       if attempted >= 2, do: {:halt, attempted}, else: {:cont, attempted}
     end)
 
-    Plan.filter_after_refresh(refresh_plan)
+    result = Plan.filter_after_refresh(refresh_plan)
+    Logger.debug(fn ->
+      "quota revalidation result=#{if elem(result, 0) == :ok, do: "eligible", else: "blocked"}"
+    end)
+    result
   end
 
   defp refresh_assignment_once(%PoolUpstreamAssignment{} = assignment) do
