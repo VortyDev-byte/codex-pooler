@@ -43,19 +43,18 @@ defmodule CodexPooler.Gateway.Routing.CircuitHealth do
   def blocked?(%RoutingCircuitState{status: @open_status} = state, settings, now),
     do: DateTime.compare(recovery_probe_at(state, settings), now) == :gt
 
-  # Legacy/incomplete persisted rows must retain a cooldown, not an infinite
-  # ban. Admission still takes the row lock and permits only a guarded probe.
-  def recovery_probe_at(state, settings) do
-    DateTime.add(state.opened_at || state.updated_at || state.created_at,
-      settings.circuit_open_seconds, :second)
-  end
-
   def blocked?(%RoutingCircuitState{status: @half_open_status} = state, settings, now) do
     probe_in_flight_count(state) >= settings.circuit_half_open_probe_limit and
       not probe_stale?(state, settings, now)
   end
 
   def blocked?(_state, _settings, _now), do: false
+
+  # Legacy rows retain a cooldown followed by a locked, guarded probe.
+  def recovery_probe_at(state, settings) do
+    DateTime.add(state.opened_at || state.updated_at || state.created_at || DateTime.utc_now(),
+      settings.circuit_open_seconds, :second)
+  end
 
   @spec blocked_reason(
           RoutingCircuitState.t() | nil,
