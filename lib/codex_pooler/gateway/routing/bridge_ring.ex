@@ -560,6 +560,7 @@ defmodule CodexPooler.Gateway.Routing.BridgeRing do
     assignment_ids = Enum.map(candidates, fn {assignment, _identity} -> assignment.id end)
     active_status = BridgeDemotion.active_status()
     now = now()
+    legacy_cutoff = DateTime.add(now, -@demotion_seconds, :second)
 
     Repo.all(
       from demotion in BridgeDemotion,
@@ -568,7 +569,8 @@ defmodule CodexPooler.Gateway.Routing.BridgeRing do
             demotion.model_identifier == ^model.exposed_model_id and
             demotion.pool_upstream_assignment_id in ^assignment_ids and
             demotion.status == ^active_status and
-            (is_nil(demotion.demoted_until) or demotion.demoted_until > ^now)
+              (demotion.demoted_until > ^now or
+                 (is_nil(demotion.demoted_until) and demotion.updated_at > ^legacy_cutoff))
     )
     |> Map.new(&{&1.pool_upstream_assignment_id, &1})
   end

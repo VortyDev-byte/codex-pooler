@@ -1186,7 +1186,7 @@ defmodule CodexPooler.Gateway.Routing.BridgeRingTest do
 
       insert_demotion!(setup, demoted_assignment, demoted_identity, "upstream_5xx",
         demoted_until: nil,
-        now: ~U[2026-05-09 10:00:00.000000Z]
+        now: DateTime.utc_now() |> DateTime.truncate(:microsecond)
       )
 
       demoted_plan = plan_for(setup, "bridge_ring", seed)
