@@ -73,7 +73,21 @@ defmodule CodexPooler.Gateway.Routing.RouteFiltering do
        ) do
     case Plan.filter_eligible_candidates(filter_input, route_state) do
       {:refreshable_quota, refresh_plan} ->
-        refreshed_result = Executor.refresh_stale_candidates(refresh_plan)
+        # Optional-quota routes (for example file operations) must not add
+        # usage requests merely because this account has never reported quota.
+        refreshed_result =
+          if quota_mode == :optional and
+               Enum.all?(refresh_plan.candidate_exclusions, fn exclusion ->
+                 Enum.all?(exclusion.reasons, &(&1["code"] in [
+                   "quota_evidence_missing", "quota_evidence_out_of_scope",
+                   "quota_account_primary_missing", "quota_evidence_unusable"
+                 ]))
+               end) do
+            CandidateEligibility.quota_unavailable_error(filter_input,
+              refresh_plan.candidate_exclusions, false)
+          else
+            Executor.refresh_stale_candidates(refresh_plan)
+          end
 
         refreshed_result
         |> SavedResetAutoRedeem.maybe_redeem_before_quota_exhaustion(
