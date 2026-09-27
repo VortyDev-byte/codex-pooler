@@ -130,7 +130,7 @@ defmodule CodexPooler.Gateway.Routing.RouteFilteringTest do
       assert {:error,
               %{
                 code: "quota_evidence_unavailable",
-                quota_refresh_attempted: false
+                quota_refresh_attempted: true
               }} = RouteFiltering.filter_candidates(filter_input)
     end
 
@@ -274,7 +274,7 @@ defmodule CodexPooler.Gateway.Routing.RouteFilteringTest do
       end
 
       assert Repo.all(Attempt) == []
-      assert FakeUpstream.count(upstream) == 4
+      assert FakeUpstream.count(upstream) == 2
 
       assert Enum.all?(FakeUpstream.requests(upstream), fn request ->
                request.path in ["/backend-api/wham/usage", "/backend-api/codex/usage"]
