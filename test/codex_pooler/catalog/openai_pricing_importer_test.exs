@@ -11,8 +11,8 @@ defmodule CodexPooler.Catalog.OpenAIPricingImporterTest do
 
   @fixture Path.expand("../../fixtures/pricing/openai/2026-07-28.json", __DIR__)
   @target Path.expand("../../../priv/pricing/openai/pricing.json", __DIR__)
-  @target_sha256 "cd74a2827b92610b89288fa511c78ec63ed76017a912d95470085abc03b0fe56"
-  @target_generated_at "2026-09-03T19:40:10.049982Z"
+  @target_sha256 "688426b19c661a1eb5fd79dd21a36f8876320382c0093bf975836b31666e4fbd"
+  @target_generated_at "2026-09-29T21:00:00.000000Z"
   @removed_identifiers [
     "computer-use-preview",
     "gpt-3.5-0301",
