@@ -38,6 +38,8 @@ for name in names:
     assert len(data["models"][name]["prices"]) == 4
 data["models_count"] = len(data["models"])
 data["generated_at"] = timestamp
+for model in data["models"].values():
+    model["timestamp"] = timestamp
 target.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 test = root / "test/codex_pooler/catalog/openai_pricing_importer_test.exs"
 text = test.read_text(encoding="utf-8")
