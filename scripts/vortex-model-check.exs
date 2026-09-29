@@ -24,7 +24,7 @@ for pool <- CodexPooler.Pools.list_active_pools() do
     %{identity: identity} ->
       {:ok, token} = Secrets.decrypt_active_secret(identity, "access_token")
 
-      for model <- ~w(gpt-6-sol gpt-6-luna) do
+      for model <- ~w(gpt-6.1-sol) do
         headers =
           [
             {"authorization", "Bearer #{String.trim(token)}"},
