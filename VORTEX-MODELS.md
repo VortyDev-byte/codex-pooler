@@ -1,5 +1,13 @@
 # Vortex automatic model discovery
 
+2026-09-30 correction: the previous availability diagnosis below was incomplete.
+The upstream catalog is gated by the advertised Codex client version. Updating
+the shared identity from 0.153.4 to 0.159.1 exposes GPT-6.1 Sol, GPT-6 Sol, and
+GPT-6 Luna on all three accounts. All eight visible models completed MODEL_OK
+on all three accounts (24 successful HTTP SSE requests). See VORTEX-ACCEPTANCE.md.
+The default is now 0.159.1; CODEX_POOLER_CODEX_CLIENT_VERSION can override it at
+release startup. Discovery and HTTP/WebSocket headers use the same identity.
+
 Use `scripts/start-vortex.ps1` to rebuild and start this custom checkout.
 It uses the `vortex-codex-pooler` Docker Compose project, local image
 `vortex-codex-pooler:local`, and existing external database volume

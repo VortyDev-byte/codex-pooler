@@ -41,6 +41,18 @@ defmodule CodexPooler.Catalog.OpenAIPricingImporterTest do
     "o4-mini-deep-research"
   ]
   @reviewed_rates %{
+    "gpt-6.1-sol" => %{
+      "standard" => ["2.0", "0.1", "2.5", "10.0"],
+      "fast" => ["4.0", "0.2", "5.0", "20.0"]
+    },
+    "gpt-6-sol" => %{
+      "standard" => ["2.0", "0.2", "2.5", "10.0"],
+      "fast" => ["4.0", "0.4", "5.0", "20.0"]
+    },
+    "gpt-6-luna" => %{
+      "standard" => ["0.1", "0.01", "0.125", "0.5"],
+      "fast" => ["0.2", "0.02", "0.25", "1.0"]
+    },
     "gpt-6-astra" => %{
       "standard" => ["10.0", "1.0", "12.5", "50.0"],
       "fast" => ["20.0", "2.0", "25.0", "100.0"]
@@ -59,6 +71,9 @@ defmodule CodexPooler.Catalog.OpenAIPricingImporterTest do
     }
   }
   @reviewed_fast_long_context_rates %{
+    "gpt-6.1-sol" => ["8.0", "0.4", "10.0", "30.0"],
+    "gpt-6-sol" => ["8.0", "0.8", "10.0", "30.0"],
+    "gpt-6-luna" => ["0.4", "0.04", "0.5", "1.5"],
     "gpt-6-astra" => ["40.0", "4.0", "50.0", "150.0"],
     "gpt-5.6-luna" => ["0.8", "0.08", "1.0", "3.6"],
     "gpt-5.6-terra" => ["8.0", "0.8", "10.0", "36.0"],
