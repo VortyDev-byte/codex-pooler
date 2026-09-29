@@ -12,6 +12,14 @@ advertised models and their per-account capability metadata. No model-name
 allowlist or code edit is required for compatible future catalog entries.
 The launch script also queues an immediate refresh.
 
+On 2026-09-29, all three connected accounts still omitted `gpt-6.1-sol`.
+A direct Responses probe for that exact identifier returned HTTP 400:
+"The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account."
+`scripts/vortex-model-check.exs` now checks that requested identifier.
+The existing discovery pipeline will import its actual capabilities when an
+eligible account advertises it. Full live support and pricing remain unverified;
+do not alias it to Astra or copy another model's prices or limits.
+
 Only upstream-advertised models are exposed. On 2026-09-22, all three connected
 accounts advertised `gpt-5.6-sol`, `gpt-5.6-luna`, and `gpt-6-astra`.
 Direct probes for `gpt-6-sol` and `gpt-6-luna` returned HTTP 400 with
