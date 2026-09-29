@@ -10,7 +10,9 @@ defmodule CodexPooler.Catalog.FutureModelsTest do
     %{assignment: assignment} = active_upstream_assignment_fixture(pool)
 
     # These are simulated rollout entries, not claims of upstream availability.
-    ids = ["gpt-6-sol", "gpt-6-luna", "future-model-#{System.unique_integer([:positive])}"]
+    ids = ["gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
+      "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
+      "future-model-#{System.unique_integer([:positive])}"]
 
     entries =
       Enum.map(ids, fn id ->

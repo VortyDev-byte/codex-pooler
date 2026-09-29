@@ -1,5 +1,15 @@
 import Config
 
+# Discovery and HTTP/WebSocket requests must advertise the same current client.
+# Allow version-gated model rollouts without requiring another image rebuild.
+if version = System.get_env("CODEX_POOLER_CODEX_CLIENT_VERSION") do
+  unless Regex.match?(~r/\A\d+\.\d+\.\d+\z/, version) do
+    raise "CODEX_POOLER_CODEX_CLIENT_VERSION must be a semantic version (e.g. 0.159.1)"
+  end
+
+  config :codex_pooler, CodexPooler.Catalog, codex_client_version: version
+end
+
 native_compaction_trace_mode =
   if config_env() in [:dev, :test] do
     CodexPooler.Gateway.Transports.Websocket.NativeCompactionTrace.runtime_mode(

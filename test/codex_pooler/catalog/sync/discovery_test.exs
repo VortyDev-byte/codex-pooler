@@ -11,7 +11,7 @@ defmodule CodexPooler.Catalog.Sync.DiscoveryTest do
     upstream_secret_key: Base.encode64(:crypto.hash(:sha256, "test-upstream-secret-key")),
     upstream_secret_key_version: "test-v1"
   ]
-  @minimum_codex_client_version "0.144.0"
+  @minimum_codex_client_version "0.159.1"
 
   setup do
     previous = Application.get_env(:codex_pooler, CodexPooler.Upstreams.Secrets)
