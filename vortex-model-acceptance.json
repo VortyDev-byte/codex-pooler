@@ -1,0 +1,698 @@
+[
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6.1-Sol",
+    "account": 1,
+    "raw_id": null,
+    "raw_slug": "gpt-6.1-sol",
+    "normalized_id": "gpt-6.1-sol",
+    "routing_id": "gpt-6.1-sol",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6.1-sol",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6-Astra",
+    "account": 1,
+    "raw_id": null,
+    "raw_slug": "gpt-6-astra",
+    "normalized_id": "gpt-6-astra",
+    "routing_id": "gpt-6-astra",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6-astra",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6-Sol",
+    "account": 1,
+    "raw_id": null,
+    "raw_slug": "gpt-6-sol",
+    "normalized_id": "gpt-6-sol",
+    "routing_id": "gpt-6-sol",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6-sol",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6-Luna",
+    "account": 1,
+    "raw_id": null,
+    "raw_slug": "gpt-6-luna",
+    "normalized_id": "gpt-6-luna",
+    "routing_id": "gpt-6-luna",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6-luna",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.6-Sol",
+    "account": 1,
+    "raw_id": null,
+    "raw_slug": "gpt-5.6-sol",
+    "normalized_id": "gpt-5.6-sol",
+    "routing_id": "gpt-5.6-sol",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.6-sol",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.6-Terra",
+    "account": 1,
+    "raw_id": null,
+    "raw_slug": "gpt-5.6-terra",
+    "normalized_id": "gpt-5.6-terra",
+    "routing_id": "gpt-5.6-terra",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.6-terra",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.6-Luna",
+    "account": 1,
+    "raw_id": null,
+    "raw_slug": "gpt-5.6-luna",
+    "normalized_id": "gpt-5.6-luna",
+    "routing_id": "gpt-5.6-luna",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.6-luna",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.5",
+    "account": 1,
+    "raw_id": null,
+    "raw_slug": "gpt-5.5",
+    "normalized_id": "gpt-5.5",
+    "routing_id": "gpt-5.5",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.5",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6.1-Sol",
+    "account": 2,
+    "raw_id": null,
+    "raw_slug": "gpt-6.1-sol",
+    "normalized_id": "gpt-6.1-sol",
+    "routing_id": "gpt-6.1-sol",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6.1-sol",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6-Astra",
+    "account": 2,
+    "raw_id": null,
+    "raw_slug": "gpt-6-astra",
+    "normalized_id": "gpt-6-astra",
+    "routing_id": "gpt-6-astra",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6-astra",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6-Sol",
+    "account": 2,
+    "raw_id": null,
+    "raw_slug": "gpt-6-sol",
+    "normalized_id": "gpt-6-sol",
+    "routing_id": "gpt-6-sol",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6-sol",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6-Luna",
+    "account": 2,
+    "raw_id": null,
+    "raw_slug": "gpt-6-luna",
+    "normalized_id": "gpt-6-luna",
+    "routing_id": "gpt-6-luna",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6-luna",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.6-Sol",
+    "account": 2,
+    "raw_id": null,
+    "raw_slug": "gpt-5.6-sol",
+    "normalized_id": "gpt-5.6-sol",
+    "routing_id": "gpt-5.6-sol",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.6-sol",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.6-Terra",
+    "account": 2,
+    "raw_id": null,
+    "raw_slug": "gpt-5.6-terra",
+    "normalized_id": "gpt-5.6-terra",
+    "routing_id": "gpt-5.6-terra",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.6-terra",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.6-Luna",
+    "account": 2,
+    "raw_id": null,
+    "raw_slug": "gpt-5.6-luna",
+    "normalized_id": "gpt-5.6-luna",
+    "routing_id": "gpt-5.6-luna",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.6-luna",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.5",
+    "account": 2,
+    "raw_id": null,
+    "raw_slug": "gpt-5.5",
+    "normalized_id": "gpt-5.5",
+    "routing_id": "gpt-5.5",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.5",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6.1-Sol",
+    "account": 3,
+    "raw_id": null,
+    "raw_slug": "gpt-6.1-sol",
+    "normalized_id": "gpt-6.1-sol",
+    "routing_id": "gpt-6.1-sol",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6.1-sol",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6-Astra",
+    "account": 3,
+    "raw_id": null,
+    "raw_slug": "gpt-6-astra",
+    "normalized_id": "gpt-6-astra",
+    "routing_id": "gpt-6-astra",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6-astra",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6-Sol",
+    "account": 3,
+    "raw_id": null,
+    "raw_slug": "gpt-6-sol",
+    "normalized_id": "gpt-6-sol",
+    "routing_id": "gpt-6-sol",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6-sol",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-6-Luna",
+    "account": 3,
+    "raw_id": null,
+    "raw_slug": "gpt-6-luna",
+    "normalized_id": "gpt-6-luna",
+    "routing_id": "gpt-6-luna",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-6-luna",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.6-Sol",
+    "account": 3,
+    "raw_id": null,
+    "raw_slug": "gpt-5.6-sol",
+    "normalized_id": "gpt-5.6-sol",
+    "routing_id": "gpt-5.6-sol",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.6-sol",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.6-Terra",
+    "account": 3,
+    "raw_id": null,
+    "raw_slug": "gpt-5.6-terra",
+    "normalized_id": "gpt-5.6-terra",
+    "routing_id": "gpt-5.6-terra",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.6-terra",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.6-Luna",
+    "account": 3,
+    "raw_id": null,
+    "raw_slug": "gpt-5.6-luna",
+    "normalized_id": "gpt-5.6-luna",
+    "routing_id": "gpt-5.6-luna",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.6-luna",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  },
+  {
+    "result": {
+      "status": 200,
+      "text": "MODEL_OK",
+      "completed": true
+    },
+    "display_name": "GPT-5.5",
+    "account": 3,
+    "raw_id": null,
+    "raw_slug": "gpt-5.5",
+    "normalized_id": "gpt-5.5",
+    "routing_id": "gpt-5.5",
+    "sent_body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": "Reply exactly: MODEL_OK",
+          "role": "user"
+        }
+      ],
+      "instructions": "Reply exactly: MODEL_OK",
+      "model": "gpt-5.5",
+      "reasoning": {},
+      "store": false,
+      "stream": true
+    }
+  }
+]
