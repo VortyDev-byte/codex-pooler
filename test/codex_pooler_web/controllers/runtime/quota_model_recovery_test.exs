@@ -86,6 +86,8 @@ defmodule CodexPoolerWeb.Runtime.QuotaModelRecoveryTest do
     assert Repo.reload!(third.assignment).health_status == "active"
     assert Repo.reload!(third.assignment).eligibility_status == "eligible"
     assert Repo.reload!(third.assignment).cooldown_until == nil
+    snapshot = RoutingQuotaSnapshot.load_by_identity_ids([third.identity.id], DateTime.utc_now())[third.identity.id]
+    assert Windows.routing_quota_eligibility_from_snapshot(snapshot).eligible?, inspect(snapshot)
 
     assert :ok = CatalogSyncWorker.perform(Repo.reload!(catalog_job))
     assert [%Model{status: "active"}] = Catalog.list_models(setup.pool)
