@@ -103,27 +103,19 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.ExecutorTest do
     assert %{rows: [[3]]} = Repo.query!("SELECT count(*) FROM quota_refresh_leases")
   end
 
-  test "another database session holding the refresh lock prevents upstream work" do
+  test "a live identity lease prevents duplicate upstream work" do
     upstream = start_upstream(FakeUpstream.json_response(%{}))
     setup = gateway_setup(upstream, quota?: false)
     plan = stale_plan(setup)
-    lock_key = :erlang.phash2({Executor, :quota_refresh, setup.assignment.id}, 2_147_483_647)
-    config = Keyword.take(Repo.config(), [:hostname, :port, :username, :password, :database])
-    connection = start_supervised!({Postgrex, config})
-    %{rows: [[other_backend]]} = Postgrex.query!(connection, "select pg_backend_pid()", [])
-    %{rows: [[own_backend]]} = Repo.query!("select pg_backend_pid()")
-    refute other_backend == own_backend
-    Postgrex.query!(connection, "select pg_advisory_lock($1)", [lock_key])
+    Repo.query!("""
+    INSERT INTO quota_refresh_leases (upstream_identity_id, next_refresh_at, expires_at)
+    VALUES ($1, clock_timestamp() + interval '30 seconds', clock_timestamp() + interval '10 seconds')
+    """, [Ecto.UUID.dump!(setup.identity.id)])
 
-    try do
       assert {:error, %{code: "quota_evidence_unavailable", quota_refresh_attempted: true}} =
                Executor.refresh_stale_candidates(plan)
 
       assert FakeUpstream.count(upstream) == 0
-      assert %{rows: [[false]]} = Repo.query!("select pg_try_advisory_lock($1)", [lock_key])
-    after
-      Postgrex.query!(connection, "select pg_advisory_unlock($1)", [lock_key])
-    end
   end
 
   test "an assignment removed after planning fails closed and releases the refresh lock" do
