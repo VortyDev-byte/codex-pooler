@@ -1,5 +1,7 @@
 import Config
 
+config :codex_pooler, runtime_recovery_enabled: false
+
 config :six, skip_files: [~r{\Adev_support/}]
 
 config :argon2_elixir, t_cost: 1, m_cost: 8

@@ -356,6 +356,7 @@ defmodule CodexPooler.Upstreams.Reconciliation.PoolReconciliation do
     |> PoolUpstreamAssignment.changeset(%{
       health_status: @health_active,
       eligibility_status: eligibility_after_reconciliation(assignment, quota_step),
+      cooldown_until: if(quota_step.status == :succeeded, do: nil, else: assignment.cooldown_until),
       last_healthcheck_at: timestamp,
       updated_at: timestamp
     })

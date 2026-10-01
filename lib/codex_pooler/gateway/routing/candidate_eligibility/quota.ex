@@ -477,7 +477,11 @@ defmodule CodexPooler.Gateway.Routing.CandidateEligibility.Quota do
   defp quota_unavailable_error_details(exclusions) do
     reasons = Enum.flat_map(exclusions, &Map.get(&1, :reasons, []))
 
-    if Enum.any?(reasons, &quota_exhaustion_reason?/1) do
+    if exclusions != [] and
+         Enum.all?(exclusions, fn exclusion ->
+           candidate_reasons = Map.get(exclusion, :reasons, [])
+           candidate_reasons != [] and Enum.any?(candidate_reasons, &quota_exhaustion_reason?/1)
+         end) do
       %{
         code: "quota_exhausted",
         message: "upstream quota is exhausted until its reset time"

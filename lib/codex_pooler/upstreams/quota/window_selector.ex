@@ -53,10 +53,40 @@ defmodule CodexPooler.Upstreams.Quota.WindowSelector do
       |> Enum.map(fn candidates ->
         candidates
         |> reject_prior_cycle_windows(as_of)
+        |> reject_superseded_account_observations(as_of)
         |> best_logical_window(as_of)
       end)
     end)
     |> Enum.sort_by(&logical_sort_key/1)
+  end
+
+  # A complete, accepted account usage snapshot may supersede an older runtime
+  # observation. Source precedence is a quality tie-breaker, not a permanent
+  # veto held by the highest historical percentage. Model/feature meters keep
+  # their independent conservative selection and restart proofs.
+  defp reject_superseded_account_observations(candidates, as_of) do
+    current =
+      Enum.filter(candidates, fn window ->
+        window.quota_scope == "account" and window.quota_family == "account" and
+          window.source == "codex_usage_api" and
+          window.source_precision in ["authoritative", "observed"] and
+          match?(%Decimal{}, window.used_percent) and
+          match?(%DateTime{}, window.reset_at) and
+          fresh?(window, as_of) and not expired?(window, as_of) and
+          match?(%{"rate_limit_allowed" => true, "rate_limit_reached" => false}, window.metadata)
+      end)
+      |> Enum.max_by(&timestamp_rank(&1.observed_at), fn -> nil end)
+
+    case current do
+      nil -> candidates
+      snapshot ->
+        Enum.reject(candidates, fn window ->
+          timestamp_rank(window.observed_at) < timestamp_rank(snapshot.observed_at) and
+            match?(%DateTime{}, window.reset_at) and
+            (expired?(window, as_of) or
+               abs(DateTime.diff(snapshot.reset_at, window.reset_at, :second)) <= 300)
+        end)
+    end
   end
 
   # Generic observations predate provider meter identity. They remain one

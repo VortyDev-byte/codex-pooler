@@ -395,6 +395,9 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
        ) do
     merged_attrs =
       cond do
+        not newer_observation?(evidence.observed_at, existing.observed_at) ->
+          window_attrs(existing)
+
         unproven_model_weekly_zero_observation?(evidence, existing) ->
           rejected_snapshot_without_sync_attrs(existing, timestamp)
 
@@ -1349,6 +1352,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
       same_cycle_reset?(evidence, existing) and
         relative_reset_timing_present?(evidence.metadata) and
         not weak_zero_percent_evidence?(evidence) and
+        compare_percent(evidence.used_percent, existing.used_percent) != :lt and
           not stale_same_cycle_exhausted_snapshot?(evidence, existing, timestamp) ->
         :same_cycle
 
@@ -1845,6 +1849,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
        )
        when incoming_precision in ["observed", "authoritative"] do
     newer_observation?(evidence.observed_at, existing.observed_at) and
+      evidence.used_percent == existing.used_percent and
       Evidence.current_freshness_state(evidence, timestamp) == "fresh" and
       not Evidence.expired?(existing, timestamp) and
       same_cycle_reset?(evidence, existing) and

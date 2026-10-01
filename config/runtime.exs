@@ -75,7 +75,7 @@ if config_env() == :prod do
 
   oban_services = [
     cron: [crontab: CodexPooler.Jobs.Schedule.oban_crontab()],
-    lifeline: [],
+    lifeline: [rescue_after: {35, :minutes}],
     pruner: [max_age: {1, :day}]
   ]
 

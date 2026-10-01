@@ -100,7 +100,8 @@ defmodule CodexPooler.Upstreams.Quota.AccountAvailabilityStore do
       when is_integer(credential_epoch) and credential_epoch > 0 do
     metadata = normalize_metadata(metadata)
 
-    if preserve_current_blocked?(metadata, observation, credential_epoch) do
+    if older_observation?(metadata, observed_at, credential_epoch) or
+         preserve_current_blocked?(metadata, observation, credential_epoch) do
       metadata
     else
       Map.put(metadata, @metadata_key, encode!(observation.state, observed_at, credential_epoch))
@@ -109,6 +110,16 @@ defmodule CodexPooler.Upstreams.Quota.AccountAvailabilityStore do
 
   @spec clear(map() | nil) :: map()
   def clear(metadata), do: metadata |> normalize_metadata() |> Map.delete(@metadata_key)
+
+  defp older_observation?(metadata, observed_at, epoch) do
+    case load(metadata) do
+      {:ok, %Snapshot{credential_epoch: current_epoch, observed_at: current_at}} ->
+        epoch < current_epoch or
+          (epoch == current_epoch and DateTime.compare(observed_at, current_at) != :gt)
+
+      :error -> false
+    end
+  end
 
   defp preserve_current_blocked?(
          metadata,

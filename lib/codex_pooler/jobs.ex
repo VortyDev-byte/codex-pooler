@@ -81,6 +81,7 @@ defmodule CodexPooler.Jobs do
   @spec enqueue_catalog_sync(pool_ref(), keyword()) :: job_insert_result()
   def enqueue_catalog_sync(pool_or_id, opts \\ []) do
     with {:ok, pool_id} <- pool_id(pool_or_id) do
+      CodexPooler.Jobs.RuntimeRecovery.recover_worker(CatalogSyncWorker)
       %{"pool_id" => pool_id, "trigger_kind" => Keyword.get(opts, :trigger_kind, "scheduled")}
       |> CatalogSyncWorker.new(Options.job_options(opts, unique_keys: [:pool_id]))
       |> Oban.insert()

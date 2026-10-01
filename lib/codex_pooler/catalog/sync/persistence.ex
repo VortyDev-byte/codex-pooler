@@ -36,6 +36,12 @@ defmodule CodexPooler.Catalog.Sync.Persistence do
     partial? = failed_assignment_ids != []
 
     Multi.new()
+    |> Multi.run(:run_fence, fn repo, _changes ->
+      case repo.one(from current in SyncRun, where: current.id == ^run.id, lock: "FOR UPDATE") do
+        %SyncRun{status: "running"} -> {:ok, :current}
+        _superseded -> {:error, :catalog_sync_superseded}
+      end
+    end)
     |> then(fn multi ->
       Enum.reduce(grouped, multi, fn {_exposed_id, aggregate}, multi ->
         # Reason: per-model Multi step preserves aggregate-specific rollback context.
@@ -104,6 +110,9 @@ defmodule CodexPooler.Catalog.Sync.Persistence do
           |> Enum.filter(&match?(%Model{}, &1))
 
         {:ok, %{sync_run: changes.sync_run, models: models, partial?: partial?}}
+
+      {:error, :run_fence, reason, _changes} ->
+        {:error, reason}
 
       {:error, _operation, reason, _changes} ->
         fail_sync_run(run, reason)

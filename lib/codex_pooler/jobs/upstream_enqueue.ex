@@ -146,6 +146,7 @@ defmodule CodexPooler.Jobs.UpstreamEnqueue do
   def enqueue_account_reconciliation(pool_or_id, assignment_or_id, opts \\ []) do
     with {:ok, pool_id} <- pool_id(pool_or_id),
          {:ok, assignment_id} <- assignment_id(assignment_or_id) do
+      CodexPooler.Jobs.RuntimeRecovery.recover_worker(AccountReconciliationWorker)
       pool_id
       |> account_reconciliation_args(assignment_id, opts)
       |> maybe_put_recovery_fence(assignment_or_id)

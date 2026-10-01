@@ -27,6 +27,7 @@ defmodule CodexPooler.Application do
       CodexPooler.Events.PostgresBridge,
       CodexPooler.InstanceSettings.Cache,
       {Oban, Application.fetch_env!(:codex_pooler, Oban)},
+      CodexPooler.Jobs.RuntimeRecovery,
       {DNSCluster,
        query: Application.get_env(:codex_pooler, :dns_cluster_query) || :ignore,
        resolver: CodexPooler.Platform.DNSClusterResolver},

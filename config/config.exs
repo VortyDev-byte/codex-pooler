@@ -136,7 +136,7 @@ config :codex_pooler, Oban,
   queues: [jobs: 8],
   shutdown_grace_period: :timer.seconds(55),
   cron: [crontab: jobs_crontab],
-  lifeline: [],
+  lifeline: [rescue_after: {35, :minutes}],
   pruner: [max_age: {1, :day}]
 
 config :codex_pooler, CodexPooler.Accounts,

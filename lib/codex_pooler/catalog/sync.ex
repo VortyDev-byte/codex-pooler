@@ -134,10 +134,23 @@ defmodule CodexPooler.Catalog.Sync do
     started_at = now()
     {:ok, _summary} = cleanup_stale_sync_runs(started_at)
 
-    with :ok <- ensure_no_running_sync(pool_id, trigger_kind, started_at),
-         {:ok, run} <- create_sync_run(pool_id, trigger_kind, started_at) do
+    with {:ok, run} <- claim_sync_run(pool_id, trigger_kind, started_at) do
       discover_and_persist_catalog(run, assignments, fetcher)
     end
+  end
+
+  defp claim_sync_run(pool_id, trigger_kind, started_at) do
+    Repo.transaction(fn ->
+      # Serialize only admission, never hold a transaction over HTTP discovery.
+      Repo.one!(from pool in Pool, where: pool.id == ^pool_id, lock: "FOR UPDATE")
+
+      with :ok <- ensure_no_running_sync(pool_id, trigger_kind, started_at),
+           {:ok, run} <- create_sync_run(pool_id, trigger_kind, started_at) do
+        run
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
   end
 
   defp ensure_no_running_sync(pool_id, trigger_kind, started_at) do
