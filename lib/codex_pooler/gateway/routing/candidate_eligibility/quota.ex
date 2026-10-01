@@ -475,8 +475,6 @@ defmodule CodexPooler.Gateway.Routing.CandidateEligibility.Quota do
   end
 
   defp quota_unavailable_error_details(exclusions) do
-    reasons = Enum.flat_map(exclusions, &Map.get(&1, :reasons, []))
-
     if exclusions != [] and
          Enum.all?(exclusions, fn exclusion ->
            candidate_reasons = Map.get(exclusion, :reasons, [])

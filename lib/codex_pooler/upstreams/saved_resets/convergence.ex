@@ -66,6 +66,14 @@ defmodule CodexPooler.Upstreams.SavedResets.Convergence do
   end
 
   def converge(identity_or_id, now, source) when is_binary(source) do
+    if CodexPooler.Upstreams.SavedResets.Preservation.enabled?() do
+      {:ok, :unchanged}
+    else
+      converge_when_enabled(identity_or_id, now, source)
+    end
+  end
+
+  defp converge_when_enabled(identity_or_id, now, source) do
     emit_after_commit? = not Repo.in_transaction?()
 
     case identity_id(identity_or_id) do

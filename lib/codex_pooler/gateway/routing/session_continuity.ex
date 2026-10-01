@@ -384,7 +384,10 @@ defmodule CodexPooler.Gateway.Routing.SessionContinuity do
   end
 
   @spec live_direct_upstream_websocket?(term()) :: boolean()
-  defp live_direct_upstream_websocket?(pid), do: is_pid(pid)
+  defp live_direct_upstream_websocket?(pid) when is_pid(pid),
+    do: node(pid) == node() and Process.alive?(pid)
+
+  defp live_direct_upstream_websocket?(_pid), do: false
 
   @spec live_owner_forwarded_websocket?(Transport.t()) :: boolean()
   defp live_owner_forwarded_websocket?(transport) do

@@ -1849,7 +1849,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
        )
        when incoming_precision in ["observed", "authoritative"] do
     newer_observation?(evidence.observed_at, existing.observed_at) and
-      evidence.used_percent == existing.used_percent and
+      same_reported_percent?(evidence.used_percent, existing.used_percent) and
       Evidence.current_freshness_state(evidence, timestamp) == "fresh" and
       not Evidence.expired?(existing, timestamp) and
       same_cycle_reset?(evidence, existing) and
@@ -1857,6 +1857,12 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
   end
 
   defp same_cycle_sync_refresh?(_evidence, _existing, _timestamp), do: false
+
+  defp same_reported_percent?(%Decimal{} = left, %Decimal{} = right),
+    do: Decimal.equal?(left, right)
+
+  defp same_reported_percent?(nil, nil), do: true
+  defp same_reported_percent?(_left, _right), do: false
 
   defp relative_reset_observation_consistent?(
          %Evidence{} = evidence,

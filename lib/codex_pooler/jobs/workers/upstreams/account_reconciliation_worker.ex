@@ -82,6 +82,14 @@ defmodule CodexPooler.Jobs.AccountReconciliationWorker do
   end
 
   defp complete_reconciliation(args, result, reconciliation_started_at) do
+    if CodexPooler.Upstreams.SavedResets.Preservation.enabled?() do
+      reconciliation_outcome(result)
+    else
+      complete_with_saved_resets(args, result, reconciliation_started_at)
+    end
+  end
+
+  defp complete_with_saved_resets(args, result, reconciliation_started_at) do
     with :ok <- maybe_enqueue_stale_consuming_recovery(args, result),
          :ok <- maybe_enqueue_scheduled_expiry_rescue(args, result, reconciliation_started_at) do
       reconciliation_outcome(result)

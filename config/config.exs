@@ -15,6 +15,7 @@ config :codex_pooler, :scopes,
 
 config :codex_pooler,
   ecto_repos: [CodexPooler.Repo],
+  preserve_saved_resets: true,
   generators: [timestamp_type: :utc_datetime]
 
 config :codex_pooler,

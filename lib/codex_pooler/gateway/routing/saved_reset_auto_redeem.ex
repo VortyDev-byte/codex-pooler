@@ -61,7 +61,8 @@ defmodule CodexPooler.Gateway.Routing.SavedResetAutoRedeem do
       )
       when code in ["quota_exhausted", :quota_exhausted] and is_map(refresh_plan) and
              is_list(opts) do
-    if all_candidates_excluded_only_by_weekly_exhaustion?(error, refresh_plan) do
+    if not CodexPooler.Upstreams.SavedResets.Preservation.enabled?() and
+         all_candidates_excluded_only_by_weekly_exhaustion?(error, refresh_plan) do
       maybe_redeem_candidate(result, refresh_plan, :blocked_weekly_exhaustion, timestamp, opts)
     else
       result
@@ -116,7 +117,9 @@ defmodule CodexPooler.Gateway.Routing.SavedResetAutoRedeem do
         opts
       )
       when is_map(refresh_plan) and is_list(opts) do
-    maybe_redeem_threshold_candidate(result, refresh_plan, timestamp, opts)
+    if CodexPooler.Upstreams.SavedResets.Preservation.enabled?(),
+      do: result,
+      else: maybe_redeem_threshold_candidate(result, refresh_plan, timestamp, opts)
   end
 
   def maybe_redeem_before_quota_exhaustion(
@@ -127,7 +130,9 @@ defmodule CodexPooler.Gateway.Routing.SavedResetAutoRedeem do
         opts
       )
       when is_map(refresh_plan) and is_list(opts) do
-    maybe_redeem_threshold_candidate(result, refresh_plan, timestamp, opts)
+    if CodexPooler.Upstreams.SavedResets.Preservation.enabled?(),
+      do: result,
+      else: maybe_redeem_threshold_candidate(result, refresh_plan, timestamp, opts)
   end
 
   def maybe_redeem_before_quota_exhaustion(

@@ -746,6 +746,17 @@ defmodule CodexPooler.Upstreams.Reconciliation.PoolReconciliation do
 
   defp maybe_update_saved_reset_snapshot(identity, payload, observed_at, usage_url)
        when is_map(payload) do
+    if CodexPooler.Upstreams.SavedResets.Preservation.enabled?() do
+      Repo.reload!(identity)
+    else
+      update_saved_reset_snapshot(identity, payload, observed_at, usage_url)
+    end
+  end
+
+  defp maybe_update_saved_reset_snapshot(identity, _payload, _observed_at, _usage_url),
+    do: identity
+
+  defp update_saved_reset_snapshot(identity, payload, observed_at, usage_url) do
     persisted_observed_at = get_in(identity.metadata || %{}, ["saved_resets", "observed_at"])
 
     case ObservationOrdering.authorize(observed_at, persisted_observed_at) do
@@ -773,9 +784,6 @@ defmodule CodexPooler.Upstreams.Reconciliation.PoolReconciliation do
         identity
     end
   end
-
-  defp maybe_update_saved_reset_snapshot(identity, _payload, _observed_at, _usage_url),
-    do: identity
 
   defp persist_account_availability(identity, windows, account_availability, observed_at) do
     identity = Repo.reload!(identity)

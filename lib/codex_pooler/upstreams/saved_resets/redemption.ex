@@ -141,6 +141,16 @@ defmodule CodexPooler.Upstreams.SavedResetRedemption do
         expected_generation,
         opts \\ []
       ) do
+    if CodexPooler.Upstreams.SavedResets.Preservation.enabled?() do
+      {:ok, %{status: :noop, applied?: false, code: "saved_resets_preserved"}}
+    else
+      resume_stale_consuming_when_enabled(assignment_or_id, expected_identity_id,
+        expected_attempt_id, expected_generation, opts)
+    end
+  end
+
+  defp resume_stale_consuming_when_enabled(assignment_or_id, expected_identity_id,
+         expected_attempt_id, expected_generation, opts) do
     clock = Keyword.get(opts, :clock, &now/0)
     now = Keyword.get_lazy(opts, :now, clock)
 
@@ -1304,6 +1314,15 @@ defmodule CodexPooler.Upstreams.SavedResetRedemption do
              | :redemption_in_progress
              | :saved_reset_consume_outcome_ambiguous}
   def redeem(assignment_or_id, opts \\ []) do
+    if CodexPooler.Upstreams.SavedResets.Preservation.enabled?() do
+      with {:ok, assignment, identity} <- load_assignment_identity(assignment_or_id),
+        do: {:ok, noop_result(identity, assignment, "saved_resets_preserved")}
+    else
+      redeem_when_enabled(assignment_or_id, opts)
+    end
+  end
+
+  defp redeem_when_enabled(assignment_or_id, opts) do
     trigger_kind = Keyword.get(opts, :trigger_kind, "admin_manual")
 
     receive_timeout =
@@ -1341,6 +1360,14 @@ defmodule CodexPooler.Upstreams.SavedResetRedemption do
           keyword()
         ) :: scheduled_redeem_result()
   def redeem_scheduled_expiry(assignment_or_id, expected_identity_id, opts \\ []) do
+    if CodexPooler.Upstreams.SavedResets.Preservation.enabled?() do
+      {:ok, %{status: :noop, applied?: false, code: "saved_resets_preserved"}}
+    else
+      redeem_scheduled_expiry_when_enabled(assignment_or_id, expected_identity_id, opts)
+    end
+  end
+
+  defp redeem_scheduled_expiry_when_enabled(assignment_or_id, expected_identity_id, opts) do
     receive_timeout =
       Keyword.get(opts, :receive_timeout, SavedResets.redemption_receive_timeout_ms())
 

@@ -1,6 +1,6 @@
 import Config
 
-config :codex_pooler, runtime_recovery_enabled: false
+config :codex_pooler, runtime_recovery_enabled: false, preserve_saved_resets: false
 
 config :six, skip_files: [~r{\Adev_support/}]
 

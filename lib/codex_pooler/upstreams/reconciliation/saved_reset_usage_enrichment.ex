@@ -18,6 +18,16 @@ defmodule CodexPooler.Upstreams.Reconciliation.SavedResetUsageEnrichment do
         ) :: term()
   def enrich(%UpstreamIdentity{} = identity, payload, usage_url, observed_at, timeout, headers)
       when is_map(payload) do
+    if CodexPooler.Upstreams.SavedResets.Preservation.enabled?() do
+      payload
+    else
+      enrich_saved_resets(identity, payload, usage_url, observed_at, timeout, headers)
+    end
+  end
+
+  def enrich(_identity, payload, _usage_url, _observed_at, _timeout, _headers), do: payload
+
+  defp enrich_saved_resets(identity, payload, usage_url, observed_at, timeout, headers) do
     case SavedResets.count_from_usage_payload(payload) do
       {:reported, count} when count > 0 ->
         maybe_refresh_reset_credit_expirations(
@@ -34,8 +44,6 @@ defmodule CodexPooler.Upstreams.Reconciliation.SavedResetUsageEnrichment do
         payload
     end
   end
-
-  def enrich(_identity, payload, _usage_url, _observed_at, _timeout, _headers), do: payload
 
   defp maybe_refresh_reset_credit_expirations(
          identity,
