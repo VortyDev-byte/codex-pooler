@@ -157,7 +157,8 @@ defmodule CodexPoolerWeb.Runtime.QuotaModelRecoveryTest do
     routes = %{
       "/backend-api/wham/usage" => {200, %{"plan_type" => "plus", "saved_resets" => %{"available_count" => 0},
         "rate_limit" => %{"allowed" => percent < 100, "limit_reached" => percent == 100,
-          "primary_window" => %{"used_percent" => percent, "limit_window_seconds" => 18000, "reset_after_seconds" => 3600}}}},
+          "primary_window" => %{"used_percent" => percent, "limit_window_seconds" => 18000,
+            "reset_after_seconds" => 3600, "reset_at" => DateTime.to_unix(DateTime.add(DateTime.utc_now(), 3600, :second))}}}},
       "/backend-api/codex/models" => {200, %{"models" => [%{"id" => "provider-gpt-test-model", "slug" => "gpt-test-model"}]}},
       "/backend-api/codex/responses" => {200, %{"id" => "resp_recovery", "object" => "response",
         "status" => "completed", "output" => [], "usage" => %{"input_tokens" => 1, "output_tokens" => 1, "total_tokens" => 2}}}

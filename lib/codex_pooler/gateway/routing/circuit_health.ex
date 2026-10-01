@@ -33,11 +33,11 @@ defmodule CodexPooler.Gateway.Routing.CircuitHealth do
           DateTime.t()
         ) :: boolean()
   def blocked?(
-        %RoutingCircuitState{status: @open_status, next_probe_at: %DateTime{} = next_probe_at},
-        _settings,
+        %RoutingCircuitState{status: @open_status, next_probe_at: %DateTime{}} = state,
+        settings,
         now
       ) do
-    DateTime.compare(next_probe_at, now) == :gt
+    DateTime.compare(probe_due_at(state, settings), now) == :gt
   end
 
   def blocked?(%RoutingCircuitState{status: @open_status} = state, settings, now),
@@ -56,17 +56,26 @@ defmodule CodexPooler.Gateway.Routing.CircuitHealth do
       settings.circuit_open_seconds, :second)
   end
 
+  # Persisted cooldowns are derived from the opening event. A corrupt or old
+  # far-future timestamp cannot exclude an account indefinitely; admission
+  # still takes the row lock and grants only a bounded half-open probe.
+  def probe_due_at(%RoutingCircuitState{next_probe_at: %DateTime{} = scheduled} = state, settings) do
+    Enum.min([scheduled, recovery_probe_at(state, settings)], DateTime)
+  end
+
+  def probe_due_at(state, settings), do: recovery_probe_at(state, settings)
+
   @spec blocked_reason(
           RoutingCircuitState.t() | nil,
           OperationalSettings.t(),
           DateTime.t()
         ) :: String.t() | nil
   def blocked_reason(
-        %RoutingCircuitState{status: @open_status, next_probe_at: %DateTime{} = next_probe_at},
-        _settings,
+        %RoutingCircuitState{status: @open_status, next_probe_at: %DateTime{}} = state,
+        settings,
         now
       ) do
-    if DateTime.compare(next_probe_at, now) == :gt, do: "open_cooldown"
+    if blocked?(state, settings, now), do: "open_cooldown"
   end
 
   def blocked_reason(%RoutingCircuitState{status: @open_status} = state, settings, now),

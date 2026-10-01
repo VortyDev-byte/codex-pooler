@@ -474,12 +474,12 @@ defmodule CodexPooler.Gateway.Routing.CircuitState do
   end
 
   defp begin_state(
-         %RoutingCircuitState{status: @open_status, next_probe_at: %DateTime{} = next_probe_at} =
+         %RoutingCircuitState{status: @open_status, next_probe_at: %DateTime{}} =
            state,
-         _settings,
+         settings,
          now
        ) do
-    if DateTime.compare(next_probe_at, now) == :gt do
+    if CircuitHealth.blocked?(state, settings, now) do
       Repo.rollback(:routing_circuit_open)
     else
       state
