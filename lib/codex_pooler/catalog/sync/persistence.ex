@@ -147,19 +147,15 @@ defmodule CodexPooler.Catalog.Sync.Persistence do
   @spec fail_sync_run(SyncRun.t(), term()) ::
           {:error, SyncRun.t(), map()} | {:error, Ecto.Changeset.t()}
   def fail_sync_run(%SyncRun{} = run, reason) do
-    run
-    |> SyncRun.changeset(%{
-      status: @failed,
-      finished_at: now(),
-      error_message: sanitize_sync_error(reason)
-    })
-    |> Repo.update()
-    |> case do
-      {:ok, sync_run} ->
-        {:error, sync_run, catalog_error(:catalog_sync_failed, sync_run.error_message)}
+    {count, runs} = from(current in SyncRun,
+      where: current.id == ^run.id and current.status == "running", select: current)
+      |> Repo.update_all(set: [status: @failed, finished_at: now(),
+        error_message: sanitize_sync_error(reason)])
 
-      {:error, changeset} ->
-        {:error, changeset}
+    case {count, runs} do
+      {1, [sync_run]} ->
+        {:error, sync_run, catalog_error(:catalog_sync_failed, sync_run.error_message)}
+      _superseded -> {:error, :catalog_sync_superseded}
     end
   end
 

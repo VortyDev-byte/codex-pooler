@@ -396,7 +396,8 @@ defmodule CodexPooler.Gateway.Routing.SessionContinuity do
     owner.enabled? == true and
       match?(%CodexSession{}, owner.session) and
       is_binary(clean_string(owner.lease_token)) and
-      websocket_owner_downstream?(owner.downstream)
+      websocket_owner_downstream?(owner.downstream) and
+      ContinuityStore.validate_owner_token(owner.session, owner.lease_token) == :ok
   end
 
   @spec websocket_owner_downstream?(term()) :: boolean()

@@ -11,6 +11,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
   alias CodexPooler.Upstreams.Quota
   alias CodexPooler.Upstreams.Quota.Windows.CycleConfirmation
   alias CodexPooler.Upstreams.Quota.Windows.RelativeLiveness
+  alias CodexPooler.Upstreams.Lifecycle.CredentialFencing
   alias CodexPooler.Upstreams.Schemas.UpstreamIdentity
 
   @runtime_quota_sources ~w(codex_rate_limit_event codex_response_headers codex_rate_limit_error)
@@ -95,8 +96,11 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
 
   defp record_evidence_in_transaction(identity_or_id, attrs, observed_at, timestamp) do
     with {:ok, evidence} <- Evidence.new(attrs, observed_at),
-         identity_id when is_binary(identity_id) <- evidence_identity_id(identity_or_id, attrs) do
-      lock_evidence_identity_reference(identity_id)
+         identity_id when is_binary(identity_id) <- evidence_identity_id(identity_or_id, attrs),
+         %UpstreamIdentity{} = current <- lock_evidence_identity_reference(identity_id),
+         true <- current_credential?(identity_or_id, current) do
+      epoch = CredentialFencing.credential_epoch(current)
+      evidence = %{evidence | metadata: Map.put(evidence.metadata || %{}, "credential_epoch", epoch)}
       advisory_lock_evidence_identity(identity_id)
 
       attrs =
@@ -116,22 +120,25 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
         clear_provider_candidates_after_runtime(result, evidence, existing, identity_id)
       end
     else
+      false -> {:error, %{code: :quota_evidence_superseded, message: "quota credentials changed"}}
       {:error, _errors} = error -> error
       _missing_identity -> {:error, %{upstream_identity_id: ["can't be blank"]}}
     end
   end
 
   defp lock_evidence_identity_reference(identity_id) do
-    _identity_id =
-      Repo.one(
+    Repo.one(
         from identity in UpstreamIdentity,
           where: identity.id == ^identity_id,
-          select: identity.id,
-          lock: "FOR KEY SHARE"
+          lock: "FOR UPDATE"
       )
 
-    :ok
   end
+
+  defp current_credential?(%UpstreamIdentity{} = supplied, current),
+    do: CredentialFencing.credential_epoch(supplied) == CredentialFencing.credential_epoch(current)
+
+  defp current_credential?(_identity_id, _current), do: true
 
   defp advisory_lock_evidence_identity(identity_id) do
     _result =
@@ -395,6 +402,10 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
        ) do
     merged_attrs =
       cond do
+        Map.get(existing.metadata || %{}, "credential_epoch", 1) !=
+            Map.get(evidence.metadata || %{}, "credential_epoch", 1) ->
+          attrs |> put_timestamps(existing) |> put_accepted_positive_weekly_barrier(evidence, %{existing | id: nil}, timestamp)
+
         not newer_observation?(evidence.observed_at, existing.observed_at) ->
           window_attrs(existing)
 

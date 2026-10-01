@@ -15,6 +15,7 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
   @quota_refresh_timeout_ms :timer.seconds(3)
   @refresh_backoff_seconds 30
   @total_refresh_timeout_ms :timer.seconds(10)
+  @max_refresh_attempts 3
 
   @spec refresh_stale_candidates(CandidateEligibility.quota_refresh_plan()) ::
           Plan.filter_after_refresh_result()
@@ -32,7 +33,8 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
       end
       attempted = if result in [:already_refreshing, :backoff], do: attempted, else: attempted + 1
       state = {attempted, contended? or result == :already_refreshing}
-      if result == :ok or attempted >= 2, do: {:halt, state}, else: {:cont, state}
+      routable? = result == :ok and match?({:ok, _, _}, Plan.filter_after_refresh(refresh_plan))
+      if routable? or attempted >= @max_refresh_attempts, do: {:halt, state}, else: {:cont, state}
     end)
 
     result = await_refresh_result(refresh_plan, if(contended?, do: 10, else: 0))

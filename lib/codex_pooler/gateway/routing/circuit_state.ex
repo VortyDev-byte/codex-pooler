@@ -694,6 +694,9 @@ defmodule CodexPooler.Gateway.Routing.CircuitState do
   defp latest_by_assignment(auth, model, assignment_ids, route_class) do
     Repo.all(
       from state in RoutingCircuitState,
+        join: assignment in PoolUpstreamAssignment,
+        on: assignment.id == state.pool_upstream_assignment_id and
+          assignment.upstream_identity_id == state.upstream_identity_id,
         where:
           state.pool_id == ^auth.pool.id and
             is_nil(state.api_key_id) and
@@ -723,6 +726,7 @@ defmodule CodexPooler.Gateway.Routing.CircuitState do
         state.pool_id == ^auth.pool.id and
           is_nil(state.api_key_id) and
           state.pool_upstream_assignment_id == ^assignment.id and
+          state.upstream_identity_id == ^assignment.upstream_identity_id and
           state.model_identifier == ^model.exposed_model_id and
           state.route_class == ^route_class,
       order_by: [desc: state.updated_at, desc: state.created_at],
