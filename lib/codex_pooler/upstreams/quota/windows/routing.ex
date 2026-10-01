@@ -410,6 +410,8 @@ defmodule CodexPooler.Upstreams.Quota.Windows.Routing do
     ordinary.eligible? and
       Enum.any?(ordinary.selection.routing_windows, fn window ->
         window.quota_scope == "account" and usable_window?(window, snapshot.as_of) and
+          window.source == "codex_usage_api" and
+          match?(%{"rate_limit_allowed" => true, "rate_limit_reached" => false}, window.metadata) and
           DateTime.compare(window.observed_at, blocked_at) == :gt
       end)
   end
