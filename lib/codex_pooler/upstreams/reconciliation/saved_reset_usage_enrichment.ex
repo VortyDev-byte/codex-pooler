@@ -94,10 +94,10 @@ defmodule CodexPooler.Upstreams.Reconciliation.SavedResetUsageEnrichment do
              receive_timeout: timeout
            ) do
         {:ok, %Req.Response{status: status} = response} when status in 200..299 ->
-          handle_successful_reset_credits_response(url, response, observed_at)
+          handle_successful_reset_credits_response(url, response, observed_at, headers)
 
         {:ok, %Req.Response{} = response} ->
-          CloudflareCookies.store_from_response(url, response)
+          CloudflareCookies.store_from_response(url, response, headers)
           {:cont, :error}
 
         {:error, _reason} ->
@@ -106,8 +106,8 @@ defmodule CodexPooler.Upstreams.Reconciliation.SavedResetUsageEnrichment do
     end)
   end
 
-  defp handle_successful_reset_credits_response(url, response, observed_at) do
-    CloudflareCookies.store_from_response(url, response)
+  defp handle_successful_reset_credits_response(url, response, observed_at, headers) do
+    CloudflareCookies.store_from_response(url, response, headers)
 
     case decode_bounded_body(response) do
       {:ok, body} when is_map(body) ->

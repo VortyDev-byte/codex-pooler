@@ -351,7 +351,7 @@ defmodule CodexPooler.Gateway.Transports.UpstreamDispatch do
       |> Keyword.merge(TransportEnvelope.req_timeout_options(timeouts))
 
     result = Req.post(url, request_options)
-    CloudflareCookies.store_from_result(url, result)
+    CloudflareCookies.store_from_result(url, result, request_options[:headers])
     result = maybe_drain_rejection_body(result, opts)
 
     result
@@ -422,7 +422,7 @@ defmodule CodexPooler.Gateway.Transports.UpstreamDispatch do
       end
 
     result = Req.post(url, request_options)
-    CloudflareCookies.store_from_result(url, result)
+    CloudflareCookies.store_from_result(url, result, upstream_header_list)
     result = maybe_drain_rejection_body(result, opts)
 
     result

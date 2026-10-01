@@ -348,7 +348,7 @@ defmodule CodexPooler.Upstreams.Reconciliation.UsageProbe do
          _retried_after_cookie?
        )
        when status in 200..299 do
-    CloudflareCookies.store_from_response(url, response)
+    CloudflareCookies.store_from_response(url, response, headers)
 
     case decode_usage_body(body) do
       {:ok, payload} -> usage_probe_success(payload, identity, url, observed_at, timeout, headers)
@@ -360,12 +360,12 @@ defmodule CodexPooler.Upstreams.Reconciliation.UsageProbe do
          {:ok, %Req.Response{status: 404} = response},
          url,
          _identity,
-         _headers,
+         headers,
          _observed_at,
          _timeout,
          _retried_after_cookie?
        ) do
-    CloudflareCookies.store_from_response(url, response)
+    CloudflareCookies.store_from_response(url, response, headers)
     :not_found
   end
 
@@ -379,7 +379,7 @@ defmodule CodexPooler.Upstreams.Reconciliation.UsageProbe do
          retried_after_cookie?
        )
        when status in [401, 403] do
-    stored_cookie? = CloudflareCookies.store_from_response(url, response)
+    stored_cookie? = CloudflareCookies.store_from_response(url, response, headers)
 
     if html_response?(response) and stored_cookie? and not retried_after_cookie? do
       probe_usage_url(url, identity, headers, observed_at, timeout, true)
@@ -397,12 +397,12 @@ defmodule CodexPooler.Upstreams.Reconciliation.UsageProbe do
          {:ok, %Req.Response{status: 429} = response},
          url,
          _identity,
-         _headers,
+         headers,
          _observed_at,
          _timeout,
          _retried_after_cookie?
        ) do
-    CloudflareCookies.store_from_response(url, response)
+    CloudflareCookies.store_from_response(url, response, headers)
     {:continue_error, {:upstream_status, 429}}
   end
 
@@ -410,12 +410,12 @@ defmodule CodexPooler.Upstreams.Reconciliation.UsageProbe do
          {:ok, %Req.Response{status: status} = response},
          url,
          _identity,
-         _headers,
+         headers,
          _observed_at,
          _timeout,
          _retried_after_cookie?
        ) do
-    CloudflareCookies.store_from_response(url, response)
+    CloudflareCookies.store_from_response(url, response, headers)
     {:halt_error, {:upstream_status, status}}
   end
 

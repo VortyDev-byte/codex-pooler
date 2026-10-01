@@ -465,7 +465,7 @@ defmodule CodexPooler.Upstreams.Auth.CodexAuth do
         Keyword.put(opts, :headers, headers)
 
       result = Req.post(url, opts)
-      CloudflareCookies.store_from_result(url, result)
+      CloudflareCookies.store_from_result(url, result, headers)
       result
     end
 
