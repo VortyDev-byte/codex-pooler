@@ -788,18 +788,21 @@ defmodule CodexPooler.Upstreams.Reconciliation.AccountReconciliation do
 
   defp maybe_put_failure_reason(details, _quota_step), do: details
 
-  defp stale_quota_priming?(
-         %{
-           metadata: %{
-             "quota_priming" => %{"status" => "refreshing", "started_at" => started_at}
-           }
-         },
-         cutoff
-       )
-       when is_binary(started_at) do
-    case DateTime.from_iso8601(started_at) do
-      {:ok, started_at, _offset} -> DateTime.compare(started_at, cutoff) != :gt
-      _error -> false
+  defp stale_quota_priming?(%{metadata: %{"quota_priming" => %{"status" => "refreshing"} = priming}} = assignment, cutoff) do
+    # Legacy/malformed metadata cannot hold admission forever. Fall back to
+    # the persisted update time; a future start beyond the bounded worker
+    # lifetime also cannot indefinitely renew an old row.
+    updated_at = assignment.updated_at
+    case priming["started_at"] do
+      value when is_binary(value) ->
+        case DateTime.from_iso8601(value) do
+          {:ok, started_at, _offset} ->
+            DateTime.compare(started_at, cutoff) != :gt or
+              (DateTime.compare(updated_at, cutoff) != :gt and
+                 DateTime.diff(started_at, updated_at, :second) > @stale_after_seconds)
+          _ -> DateTime.compare(updated_at, cutoff) != :gt
+        end
+      _ -> DateTime.compare(updated_at, cutoff) != :gt
     end
   end
 

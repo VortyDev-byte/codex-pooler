@@ -396,7 +396,8 @@ defmodule CodexPooler.Gateway.Routing.SessionContinuityTest do
 
     test "hard-pins accepted turn state backed by upstream websocket owner forwarding" do
       setup = active_pinned_assignment_setup()
-      session = codex_session_fixture(setup, setup.pinned.assignment) |> activate_owner_lease!()
+      %{api_key: api_key} = active_api_key_fixture(setup.pool)
+      session = codex_session_fixture(setup, setup.pinned.assignment, api_key) |> activate_owner_lease!()
       at = DateTime.utc_now()
       Repo.insert!(%CodexPooler.Gateway.Persistence.BridgeOwnerLease{
         codex_session_id: session.id, pool_id: session.pool_id, api_key_id: session.api_key_id,

@@ -82,7 +82,7 @@ defmodule CodexPooler.Upstreams.Quota.RoutingQuotaSnapshot do
   def time_visible_raw_windows(%__MODULE__{raw_windows: raw_windows, as_of: as_of, credential_epoch: epoch}) do
     Enum.filter(raw_windows, fn %AccountQuotaWindow{observed_at: observed_at, metadata: metadata} ->
       DateTime.compare(observed_at, as_of) in [:lt, :eq] and
-        Map.get(metadata || %{}, "credential_epoch", epoch) == epoch
+        Map.get(metadata || %{}, "credential_epoch", 1) == epoch
     end)
   end
 
