@@ -83,7 +83,7 @@ defmodule CodexPoolerWeb.Runtime.QuotaModelRecoveryTest do
     assert Repo.reload!(old_session).status == "closed"
 
     assert {:ok, %{status: :succeeded} = reconciled} = AccountReconciliation.run(setup.pool.id, third.assignment.id, "scheduled")
-    assert reconciled.quota.upserted_window_count > 0, inspect({reconciled, Enum.map(FakeUpstream.requests(third_server), & &1.path)})
+    assert reconciled.quota.details["window_count"] > 0
     assert Repo.reload!(third.assignment).health_status == "active"
     assert Repo.reload!(third.assignment).eligibility_status == "eligible"
     assert Repo.reload!(third.assignment).cooldown_until == nil
