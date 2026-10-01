@@ -66,7 +66,7 @@ defmodule CodexPooler.Jobs.RuntimeRecovery do
         where: fragment("COALESCE(?, ?) <= ?", job.attempted_at, job.inserted_at, ^cutoff)
       )
       |> Repo.update_all(set: [
-        state: dynamic([job], fragment("CASE WHEN ? < ? THEN 'available' ELSE 'discarded' END", job.attempt, job.max_attempts)),
+        state: dynamic([job], fragment("(CASE WHEN ? < ? THEN 'available' ELSE 'discarded' END)::oban_job_state", job.attempt, job.max_attempts)),
         scheduled_at: at,
         discarded_at: dynamic([job], fragment("CASE WHEN ? >= ? THEN ? ELSE NULL END", job.attempt, job.max_attempts, type(^at, :utc_datetime_usec)))
       ])
