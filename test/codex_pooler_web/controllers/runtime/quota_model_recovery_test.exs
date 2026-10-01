@@ -67,6 +67,10 @@ defmodule CodexPoolerWeb.Runtime.QuotaModelRecoveryTest do
     Ecto.Adapters.SQL.Sandbox.allow(Repo, self(), recovery_pid)
     :sys.get_state(recovery_pid)
     Application.put_env(:codex_pooler, :runtime_recovery_enabled, false)
+    on_exit(fn ->
+      Supervisor.terminate_child(CodexPooler.Supervisor, RuntimeRecovery)
+      Supervisor.restart_child(CodexPooler.Supervisor, RuntimeRecovery)
+    end)
 
     assert Repo.reload!(catalog_job).state == "available"
     assert Repo.reload!(reconciliation_job).state == "discarded"
@@ -124,7 +128,7 @@ defmodule CodexPoolerWeb.Runtime.QuotaModelRecoveryTest do
     assert window.metadata["credential_epoch"] == 2
 
     metadata = %{AccountAvailabilityStore.metadata_key() => AccountAvailabilityStore.encode!(:available, at, 2)}
-    blocked = %CodexPooler.Quotas.AccountAvailability{state: :blocked}
+    blocked = CodexPooler.Quotas.AccountAvailability.new!(:blocked, :blocker, :present)
     assert AccountAvailabilityStore.transition(metadata, blocked, DateTime.add(at, -1, :second), 2) == metadata
     assert AccountAvailabilityStore.transition(metadata, blocked, DateTime.add(at, 1, :second), 1) == metadata
   end

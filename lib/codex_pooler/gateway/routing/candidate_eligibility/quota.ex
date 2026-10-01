@@ -310,7 +310,8 @@ defmodule CodexPooler.Gateway.Routing.CandidateEligibility.Quota do
   defp claimed_pending_reset_probe?(identity) do
     redemption = redemption_metadata(identity)
 
-    RedemptionLifecycle.phase(redemption) == RedemptionLifecycle.consumed_pending_probe() and
+    not CodexPooler.Upstreams.SavedResets.Preservation.enabled?() and
+      RedemptionLifecycle.phase(redemption) == RedemptionLifecycle.consumed_pending_probe() and
       is_binary(RedemptionLifecycle.probe_holder(redemption))
   end
 
@@ -394,7 +395,8 @@ defmodule CodexPooler.Gateway.Routing.CandidateEligibility.Quota do
   # actually resets. A model-scoped weekly block (e.g. a Spark limit) or any
   # other exclusion (auth, circuit, missing reset) still excludes — fail-closed.
   defp reset_probe_routeable?(identity, reasons) do
-    weekly_exhaustion_only?(reasons) and
+    not CodexPooler.Upstreams.SavedResets.Preservation.enabled?() and
+      weekly_exhaustion_only?(reasons) and
       RedemptionLifecycle.routeable?(redemption_metadata(identity), now())
   end
 
