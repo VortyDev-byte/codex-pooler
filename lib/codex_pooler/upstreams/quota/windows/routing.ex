@@ -414,8 +414,6 @@ defmodule CodexPooler.Upstreams.Quota.Windows.Routing do
       end)
   end
 
-  defp newer_account_permission?(_snapshot, _ordinary), do: false
-
   defp blocked_availability_exclusion(snapshot, selection) do
     result = availability_exclusion(:blocked, selection)
     age = evidence_age(snapshot.availability.observed_at, snapshot.as_of)

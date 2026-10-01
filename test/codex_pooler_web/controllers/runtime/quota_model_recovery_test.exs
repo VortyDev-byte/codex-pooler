@@ -3,15 +3,14 @@ defmodule CodexPoolerWeb.Runtime.QuotaModelRecoveryTest do
   import Ecto.Query
   import CodexPoolerWeb.Runtime.BackendCodexTestSupport
 
-  alias CodexPooler.{Access, Catalog, FakeUpstream, Jobs, Repo}
+  alias CodexPooler.{Catalog, FakeUpstream, Repo}
   alias CodexPooler.Catalog.{Model, SyncRun}
   alias CodexPooler.Gateway.Persistence.{BridgeAffinity, BridgeOwnerLease, CodexSession, RoutingCircuitState}
   alias CodexPooler.Jobs.{AccountReconciliationWorker, CatalogSyncWorker, RuntimeRecovery}
   alias CodexPooler.Upstreams.Lifecycle.CredentialFencing
-  alias CodexPooler.Upstreams.Quota.{AccountAvailabilityStore, AccountQuotaWindow, RoutingQuotaSnapshot}
+  alias CodexPooler.Upstreams.Quota.{AccountAvailabilityStore, RoutingQuotaSnapshot}
   alias CodexPooler.Upstreams.Quota.Windows
   alias CodexPooler.Upstreams.Reconciliation.AccountReconciliation
-  alias CodexPooler.Upstreams.Schemas.UpstreamIdentity
 
   setup do
     previous = Application.get_env(:codex_pooler, :preserve_saved_resets)
