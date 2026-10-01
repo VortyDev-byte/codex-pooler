@@ -17,6 +17,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows do
   }
 
   alias CodexPooler.Upstreams.Lifecycle.IdentityLifecycle
+  alias CodexPooler.Upstreams.Lifecycle.CredentialFencing
   alias CodexPooler.Upstreams.Schemas.{PoolUpstreamAssignment, UpstreamIdentity}
 
   alias Ecto.Multi
@@ -56,6 +57,23 @@ defmodule CodexPooler.Upstreams.Quota.Windows do
   end
 
   defp guarded_upsert_quota_windows(%UpstreamIdentity{} = identity, windows, opts) do
+    Repo.transaction(fn ->
+      current = Repo.one(from row in UpstreamIdentity, where: row.id == ^identity.id, lock: "FOR UPDATE")
+
+      if current && CredentialFencing.credential_epoch(current) == CredentialFencing.credential_epoch(identity) do
+        case upsert_current_quota_windows(current, windows, opts) do
+          {:ok, result} -> result
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      else
+        # A delayed stream from credentials replaced during a reconnect cannot
+        # poison the new credential generation's quota or freshness.
+        []
+      end
+    end)
+  end
+
+  defp upsert_current_quota_windows(identity, windows, opts) do
     with :ok <-
            IdentityLifecycle.guard_workspace_slot_mutation(
              identity,
@@ -77,6 +95,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows do
         |> put_default(:metadata, %{})
         |> put_default(:source, "local_reconciliation")
         |> put_default(:freshness_state, @fresh)
+        |> Map.update!(:metadata, &Map.put(&1, "credential_epoch", CredentialFencing.credential_epoch(identity)))
       end)
 
     window_keys = Enum.map(windows, &Evidence.identity_key/1)

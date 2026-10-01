@@ -79,9 +79,10 @@ defmodule CodexPooler.Upstreams.Quota.RoutingQuotaSnapshot do
   end
 
   @spec time_visible_raw_windows(t()) :: [AccountQuotaWindow.t()]
-  def time_visible_raw_windows(%__MODULE__{raw_windows: raw_windows, as_of: as_of}) do
-    Enum.filter(raw_windows, fn %AccountQuotaWindow{observed_at: observed_at} ->
-      DateTime.compare(observed_at, as_of) in [:lt, :eq]
+  def time_visible_raw_windows(%__MODULE__{raw_windows: raw_windows, as_of: as_of, credential_epoch: epoch}) do
+    Enum.filter(raw_windows, fn %AccountQuotaWindow{observed_at: observed_at, metadata: metadata} ->
+      DateTime.compare(observed_at, as_of) in [:lt, :eq] and
+        Map.get(metadata || %{}, "credential_epoch", epoch) == epoch
     end)
   end
 

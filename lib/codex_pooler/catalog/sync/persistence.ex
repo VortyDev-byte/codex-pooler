@@ -9,6 +9,8 @@ defmodule CodexPooler.Catalog.Sync.Persistence do
   alias CodexPooler.Catalog.Sync.{Discovery, PreservedSources}
   alias CodexPooler.Repo
   alias CodexPooler.Upstreams.Schemas.PoolUpstreamAssignment
+  alias CodexPooler.Upstreams.Schemas.UpstreamIdentity
+  alias CodexPooler.Upstreams.Lifecycle.CredentialFencing
   alias Ecto.Multi
 
   @active "active"
@@ -41,6 +43,19 @@ defmodule CodexPooler.Catalog.Sync.Persistence do
         %SyncRun{status: "running"} -> {:ok, :current}
         _superseded -> {:error, :catalog_sync_superseded}
       end
+    end)
+    |> Multi.run(:credential_fence, fn repo, _changes ->
+      identity_ids = successful_assignments |> Enum.map(& &1.identity.id) |> Enum.uniq() |> Enum.sort()
+      identities = repo.all(from identity in UpstreamIdentity,
+        where: identity.id in ^identity_ids, order_by: identity.id, lock: "FOR UPDATE")
+        |> Map.new(&{&1.id, &1})
+      assignment_ids = successful_assignments |> Enum.map(& &1.assignment.id) |> Enum.sort()
+      assignments = repo.all(from assignment in PoolUpstreamAssignment,
+        where: assignment.id in ^assignment_ids, order_by: assignment.id, lock: "FOR UPDATE")
+        |> Map.new(&{&1.id, &1})
+
+      if Enum.all?(successful_assignments, &current_source?(&1, identities, assignments)),
+        do: {:ok, :current}, else: {:error, :catalog_credentials_superseded}
     end)
     |> then(fn multi ->
       Enum.reduce(grouped, multi, fn {_exposed_id, aggregate}, multi ->
@@ -116,6 +131,16 @@ defmodule CodexPooler.Catalog.Sync.Persistence do
 
       {:error, _operation, reason, _changes} ->
         fail_sync_run(run, reason)
+    end
+  end
+
+  defp current_source?(source, identities, assignments) do
+    with %UpstreamIdentity{status: "active"} = current <- identities[source.identity.id],
+         %PoolUpstreamAssignment{status: "active", eligibility_status: "eligible"} = assignment <- assignments[source.assignment.id] do
+      current.id == assignment.upstream_identity_id and
+        CredentialFencing.credential_epoch(current) == CredentialFencing.credential_epoch(source.identity)
+    else
+      _ -> false
     end
   end
 
