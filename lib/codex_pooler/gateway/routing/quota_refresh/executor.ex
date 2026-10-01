@@ -9,10 +9,12 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
   alias CodexPooler.Gateway.Routing.QuotaRefresh.Plan
   alias CodexPooler.Repo
   alias CodexPooler.Upstreams
+  alias CodexPooler.Upstreams.Lifecycle.CredentialFencing
   alias CodexPooler.Upstreams.Schemas.PoolUpstreamAssignment
 
   @quota_refresh_timeout_ms :timer.seconds(3)
   @refresh_backoff_seconds 30
+  @total_refresh_timeout_ms :timer.seconds(10)
 
   @spec refresh_stale_candidates(CandidateEligibility.quota_refresh_plan()) ::
           Plan.filter_after_refresh_result()
@@ -30,7 +32,7 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
       end
       attempted = if result in [:already_refreshing, :backoff], do: attempted, else: attempted + 1
       state = {attempted, contended? or result == :already_refreshing}
-      if attempted >= 2, do: {:halt, state}, else: {:cont, state}
+      if result == :ok or attempted >= 2, do: {:halt, state}, else: {:cont, state}
     end)
 
     result = await_refresh_result(refresh_plan, if(contended?, do: 10, else: 0))
@@ -73,54 +75,56 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
   end
 
   defp do_refresh_assignment_once(%PoolUpstreamAssignment{} = assignment) do
-    lock_key =
-      :erlang.phash2({__MODULE__, :quota_refresh, assignment.id}, 2_147_483_647)
+    token = Ecto.UUID.generate()
+    epoch = CredentialFencing.credential_epoch(assignment.upstream_identity_id)
 
-    Repo.checkout(fn ->
-      case Repo.query("select pg_try_advisory_lock($1)", [lock_key]) do
-        {:ok, %{rows: [[true]]}} ->
-          with_advisory_lock(assignment, lock_key)
+    # No session advisory lock or checked-out connection is held over HTTP:
+    # process death must not strand a lock on a connection returned to the pool.
+    case Repo.query!("""
+         INSERT INTO quota_refresh_leases
+           (upstream_identity_id, next_refresh_at, credential_epoch, lease_token, expires_at)
+         VALUES ($1, clock_timestamp() + $2 * interval '1 second', $3, $4,
+                 clock_timestamp() + $5 * interval '1 millisecond')
+         ON CONFLICT (upstream_identity_id) DO UPDATE
+         SET next_refresh_at = EXCLUDED.next_refresh_at,
+             credential_epoch = EXCLUDED.credential_epoch,
+             lease_token = EXCLUDED.lease_token, expires_at = EXCLUDED.expires_at
+         WHERE (quota_refresh_leases.next_refresh_at <= clock_timestamp()
+           OR quota_refresh_leases.credential_epoch < EXCLUDED.credential_epoch
+           OR quota_refresh_leases.next_refresh_at > EXCLUDED.next_refresh_at)
+           AND (quota_refresh_leases.expires_at IS NULL
+             OR quota_refresh_leases.expires_at <= clock_timestamp()
+             OR quota_refresh_leases.expires_at > EXCLUDED.expires_at
+             OR quota_refresh_leases.credential_epoch < EXCLUDED.credential_epoch)
+         RETURNING upstream_identity_id
+         """, [Ecto.UUID.dump!(assignment.upstream_identity_id), @refresh_backoff_seconds,
+                  epoch, Ecto.UUID.dump!(token), @total_refresh_timeout_ms]) do
+      %{num_rows: 1} ->
+        refresh_with_deadline(assignment, token)
 
-        {:ok, _locked} ->
-          :already_refreshing
-
-        {:error, reason} ->
-          {:error, {:advisory_lock_failed, reason}}
-      end
-    end)
+      _backoff ->
+        case Repo.query!("SELECT expires_at > clock_timestamp() FROM quota_refresh_leases WHERE upstream_identity_id = $1",
+               [Ecto.UUID.dump!(assignment.upstream_identity_id)]) do
+          %{rows: [[true]]} -> :already_refreshing
+          _ -> :backoff
+        end
+    end
   end
 
-  defp with_advisory_lock(%PoolUpstreamAssignment{} = assignment, lock_key) do
-    # A durable identity-scoped lease bounds retries across requests, replicas,
-    # assignments and process restarts. No quota protection is bypassed.
-    case Repo.query!("""
-         INSERT INTO quota_refresh_leases (upstream_identity_id, next_refresh_at)
-         VALUES ($1, clock_timestamp() + $2 * interval '1 second')
-         ON CONFLICT (upstream_identity_id) DO UPDATE
-         SET next_refresh_at = EXCLUDED.next_refresh_at
-         WHERE quota_refresh_leases.next_refresh_at <= clock_timestamp()
-         RETURNING upstream_identity_id
-         """, [Ecto.UUID.dump!(assignment.upstream_identity_id), @refresh_backoff_seconds]) do
-      %{num_rows: 1} ->
-        Logger.debug("quota revalidation started assignment_id=#{assignment.id}")
-        Upstreams.reconcile_pool_account(assignment.pool_id, assignment.id,
-          receive_timeout: @quota_refresh_timeout_ms
-        )
+  defp refresh_with_deadline(assignment, token) do
+    task = Task.Supervisor.async_nolink(CodexPooler.RateLimitEventSupervisor, fn ->
+      Upstreams.reconcile_pool_account(assignment.pool_id, assignment.id,
+        receive_timeout: @quota_refresh_timeout_ms)
+    end)
 
-      _backoff -> :backoff
+    case Task.yield(task, @total_refresh_timeout_ms) || Task.shutdown(task, :brutal_kill) do
+      {:ok, result} -> result
+      {:exit, _reason} -> {:error, :quota_refresh_failed}
+      nil -> {:error, :quota_refresh_timeout}
     end
   after
-    unlock_advisory_lock(assignment, lock_key)
-  end
-
-  defp unlock_advisory_lock(%PoolUpstreamAssignment{} = assignment, lock_key) do
-    case Repo.query("select pg_advisory_unlock($1)", [lock_key]) do
-      {:ok, _result} ->
-        :ok
-
-      {:error, reason} ->
-        log_refresh_failure(:unlock_error, reason, assignment)
-    end
+    Repo.query!("UPDATE quota_refresh_leases SET expires_at = clock_timestamp() WHERE upstream_identity_id = $1 AND lease_token = $2",
+      [Ecto.UUID.dump!(assignment.upstream_identity_id), Ecto.UUID.dump!(token)])
   end
 
   defp log_refresh_result({:ok, _result}, _assignment), do: :ok
