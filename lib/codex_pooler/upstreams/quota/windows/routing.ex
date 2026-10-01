@@ -55,7 +55,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows.Routing do
         snapshot.availability,
         snapshot.credential_epoch,
         snapshot.as_of
-      ) ->
+      ) and not newer_account_permission?(snapshot, ordinary) ->
         blocked_availability_exclusion(snapshot, ordinary.selection)
 
       ordinary.eligible? ->
@@ -405,6 +405,16 @@ defmodule CodexPooler.Upstreams.Quota.Windows.Routing do
       ]
     }
   end
+
+  defp newer_account_permission?(%RoutingQuotaSnapshot{availability: %{observed_at: blocked_at}} = snapshot, ordinary) do
+    ordinary.eligible? and
+      Enum.any?(ordinary.selection.routing_windows, fn window ->
+        window.quota_scope == "account" and usable_window?(window, snapshot.as_of) and
+          DateTime.compare(window.observed_at, blocked_at) == :gt
+      end)
+  end
+
+  defp newer_account_permission?(_snapshot, _ordinary), do: false
 
   defp blocked_availability_exclusion(snapshot, selection) do
     result = availability_exclusion(:blocked, selection)

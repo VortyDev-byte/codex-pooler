@@ -127,7 +127,8 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
       [Ecto.UUID.dump!(assignment.upstream_identity_id), Ecto.UUID.dump!(token)])
   end
 
-  defp log_refresh_result({:ok, _result}, _assignment), do: :ok
+  defp log_refresh_result({:ok, %{quota: %{status: :succeeded}}}, _assignment), do: :ok
+  defp log_refresh_result({:ok, _result}, _assignment), do: :error
   defp log_refresh_result(:already_refreshing, _assignment), do: :already_refreshing
   defp log_refresh_result(:backoff, _assignment), do: :backoff
 

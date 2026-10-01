@@ -277,6 +277,8 @@ defmodule CodexPooler.Jobs.UpstreamEnqueue do
   # not serialized here: a racing enqueue falls through to Oban's advisory-locked
   # unique insert and resolves as conflict?: true.
   defp enqueue_automatic_identity_account_reconciliation(pool_id, assignment, opts) do
+    CodexPooler.Jobs.RuntimeRecovery.recover_worker(AccountReconciliationWorker)
+
     args =
       pool_id
       |> account_reconciliation_args(assignment.id, opts)
