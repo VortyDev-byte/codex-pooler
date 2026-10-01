@@ -25,7 +25,13 @@ defmodule CodexPooler.Jobs.SavedResetRedemptionWorker do
   def timeout(%Oban.Job{}), do: :timer.seconds(45)
 
   @impl Oban.Worker
-  def perform(%Oban.Job{
+  def perform(%Oban.Job{} = job) do
+    if CodexPooler.Upstreams.SavedResets.Preservation.enabled?(),
+      do: {:cancel, :saved_resets_preserved},
+      else: do_perform(job)
+  end
+
+  defp do_perform(%Oban.Job{
         args: %{
           "pool_upstream_assignment_id" => assignment_id,
           "upstream_identity_id" => identity_id,
@@ -54,10 +60,10 @@ defmodule CodexPooler.Jobs.SavedResetRedemptionWorker do
       {:error, :saved_reset_persistence_failed}
   end
 
-  def perform(%Oban.Job{args: %{"recovery_kind" => "stale_consuming"}}),
+  defp do_perform(%Oban.Job{args: %{"recovery_kind" => "stale_consuming"}}),
     do: {:cancel, :stale_consuming_recovery_target_invalid}
 
-  def perform(%Oban.Job{
+  defp do_perform(%Oban.Job{
         args: %{
           "pool_upstream_assignment_id" => assignment_id,
           "trigger_kind" => "scheduled_expiry_rescue",
@@ -68,10 +74,10 @@ defmodule CodexPooler.Jobs.SavedResetRedemptionWorker do
     redeem_scheduled_expiry(assignment_id, expected_identity_id)
   end
 
-  def perform(%Oban.Job{args: %{"trigger_kind" => "scheduled_expiry_rescue"}}),
+  defp do_perform(%Oban.Job{args: %{"trigger_kind" => "scheduled_expiry_rescue"}}),
     do: {:cancel, :scheduled_expiry_target_invalid}
 
-  def perform(%Oban.Job{args: %{"pool_upstream_assignment_id" => assignment_id} = args}) do
+  defp do_perform(%Oban.Job{args: %{"pool_upstream_assignment_id" => assignment_id} = args}) do
     trigger_kind = Map.get(args, "trigger_kind", "admin_manual")
 
     case SavedResetRedemption.ensure_manual_available(assignment_id) do
