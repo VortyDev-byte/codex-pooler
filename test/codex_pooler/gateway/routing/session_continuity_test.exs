@@ -396,7 +396,14 @@ defmodule CodexPooler.Gateway.Routing.SessionContinuityTest do
 
     test "hard-pins accepted turn state backed by upstream websocket owner forwarding" do
       setup = active_pinned_assignment_setup()
-      session = codex_session_fixture(setup, setup.pinned.assignment)
+      session = codex_session_fixture(setup, setup.pinned.assignment) |> activate_owner_lease!()
+      at = DateTime.utc_now()
+      Repo.insert!(%CodexPooler.Gateway.Persistence.BridgeOwnerLease{
+        codex_session_id: session.id, pool_id: session.pool_id, api_key_id: session.api_key_id,
+        pool_upstream_assignment_id: session.pool_upstream_assignment_id,
+        owner_instance_id: session.owner_instance_id, lease_token: session.owner_lease_token,
+        status: "active", acquired_at: at, renewed_at: at, expires_at: session.owner_lease_expires_at,
+        metadata: %{}, created_at: at, updated_at: at})
 
       opts =
         session
@@ -405,7 +412,7 @@ defmodule CodexPooler.Gateway.Routing.SessionContinuityTest do
         |> RequestOptions.put_transport(
           websocket_owner_forwarding_enabled?: true,
           websocket_owner_session: session,
-          websocket_owner_lease_token: "lease-token",
+          websocket_owner_lease_token: session.owner_lease_token,
           websocket_owner_downstream: %{pid: self(), correlation_id: "safe-correlation"}
         )
 

@@ -101,7 +101,6 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
          true <- current_credential?(identity_or_id, current) do
       epoch = CredentialFencing.credential_epoch(current)
       evidence = %{evidence | metadata: Map.put(evidence.metadata || %{}, "credential_epoch", epoch)}
-      advisory_lock_evidence_identity(identity_id)
 
       attrs =
         evidence
@@ -139,13 +138,6 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
     do: CredentialFencing.credential_epoch(supplied) == CredentialFencing.credential_epoch(current)
 
   defp current_credential?(_identity_id, _current), do: true
-
-  defp advisory_lock_evidence_identity(identity_id) do
-    _result =
-      Repo.query!("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [identity_id])
-
-    :ok
-  end
 
   @spec list_evidence(identity_ref()) :: [Quota.AccountQuotaWindow.t()]
   def list_evidence(identity_or_id) do

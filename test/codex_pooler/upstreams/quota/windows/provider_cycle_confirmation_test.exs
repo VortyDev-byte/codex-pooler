@@ -473,7 +473,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows.ProviderCycleConfirmationTest do
   end
 
   @tag :provider_cycle_confirmation
-  test "identity advisory lock serializes confirmation against a runtime writer" do
+  test "identity row lock serializes confirmation against a runtime writer" do
     parent = self()
     barrier = make_ref()
 
@@ -673,7 +673,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows.ProviderCycleConfirmationTest do
   end
 
   defp advisory_lock_identity!(identity_id) do
-    SQL.query!(Repo, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [identity_id])
+    Repo.one!(from identity in UpstreamIdentity, where: identity.id == ^identity_id, lock: "FOR UPDATE")
     :ok
   end
 
@@ -701,7 +701,7 @@ defmodule CodexPooler.Upstreams.Quota.Windows.ProviderCycleConfirmationTest do
       if System.monotonic_time(:millisecond) < deadline do
         assert_advisory_wait!(waiter_pid, blocker_pid, deadline)
       else
-        flunk("quota evidence writer never waited on the identity advisory lock")
+        flunk("quota evidence writer never waited on the identity row lock")
       end
     end
   end
