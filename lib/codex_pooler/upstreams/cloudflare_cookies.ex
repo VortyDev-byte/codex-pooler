@@ -58,7 +58,7 @@ defmodule CodexPooler.Upstreams.CloudflareCookies do
 
   @spec request_headers(String.t(), [{String.t(), String.t()}]) :: [{String.t(), String.t()}]
   def request_headers(url, headers) when is_binary(url) and is_list(headers) do
-    case cookie_header(url) do
+    case cookie_header(url, headers) do
       nil ->
         headers
 
@@ -73,24 +73,26 @@ defmodule CodexPooler.Upstreams.CloudflareCookies do
   end
 
   @spec store_from_response(String.t(), Req.Response.t()) :: boolean()
-  def store_from_response(url, %Req.Response{} = response) when is_binary(url) do
-    store_from_set_cookie_headers(url, Req.Response.get_header(response, "set-cookie"))
+  def store_from_response(url, response, request_headers \\ [])
+  def store_from_response(url, %Req.Response{} = response, request_headers) when is_binary(url) do
+    store_from_set_cookie_headers(url, Req.Response.get_header(response, "set-cookie"), request_headers)
   end
 
   @spec store_from_result(String.t(), {:ok, Req.Response.t()} | term()) :: boolean()
-  def store_from_result(url, {:ok, %Req.Response{} = response}) when is_binary(url) do
-    store_from_response(url, response)
+  def store_from_result(url, result, request_headers \\ [])
+  def store_from_result(url, {:ok, %Req.Response{} = response}, request_headers) when is_binary(url) do
+    store_from_response(url, response, request_headers)
   end
 
-  def store_from_result(_url, _result), do: false
+  def store_from_result(_url, _result, _request_headers), do: false
 
   @spec store_from_headers(String.t(), [{String.t(), String.t()}] | map() | term()) :: boolean()
-  def store_from_headers(url, headers) when is_binary(url) do
-    store_from_set_cookie_headers(url, set_cookie_headers(headers))
+  def store_from_headers(url, headers, request_headers \\ []) when is_binary(url) do
+    store_from_set_cookie_headers(url, set_cookie_headers(headers), request_headers)
   end
 
-  defp store_from_set_cookie_headers(url, headers) do
-    origin = origin_key(url)
+  defp store_from_set_cookie_headers(url, headers, request_headers) do
+    origin = scoped_origin(url, request_headers)
 
     if origin do
       Enum.reduce(headers, false, fn header, stored_any? ->
@@ -151,8 +153,8 @@ defmodule CodexPooler.Upstreams.CloudflareCookies do
 
   defp store_set_cookie(_origin, _header), do: false
 
-  defp cookie_header(url) do
-    with origin when not is_nil(origin) <- origin_key(url),
+  defp cookie_header(url, request_headers) do
+    with origin when not is_nil(origin) <- scoped_origin(url, request_headers),
          pairs when pairs != [] <- cookie_pairs(origin) do
       pairs
       |> Enum.sort_by(fn {name, _pair} -> name end)
@@ -411,6 +413,21 @@ defmodule CodexPooler.Upstreams.CloudflareCookies do
 
       _uri ->
         nil
+    end
+  end
+
+  # Account requests must never reuse another account's challenge/session
+  # cookies at the same provider origin. Hash credentials rather than storing
+  # tokens in ETS keys; rotated credentials naturally get a fresh namespace.
+  defp scoped_origin(url, headers) do
+    case origin_key(url) do
+      nil -> nil
+      origin ->
+        authorization = Enum.find_value(headers, fn
+          {name, value} when is_binary(name) -> if String.downcase(name) == "authorization", do: value
+          _ -> nil
+        end)
+        if is_binary(authorization), do: {origin, :crypto.hash(:sha256, authorization)}, else: origin
     end
   end
 

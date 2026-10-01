@@ -68,13 +68,14 @@ defmodule CodexPooler.Catalog.Sync.Discovery do
     with {:ok, token} <-
            Secrets.decrypt_active_secret(identity, @secret_kind),
          {:ok, url} <- model_catalog_url(identity, assignment) do
+      headers = model_catalog_headers(identity, token)
       case Req.get(url,
              retry: false,
              receive_timeout: 30_000,
              headers:
-               CloudflareCookies.request_headers(url, model_catalog_headers(identity, token))
+               CloudflareCookies.request_headers(url, headers)
            )
-           |> store_cloudflare_cookies(url) do
+           |> store_cloudflare_cookies(url, headers) do
         {:ok, %{status: 200, body: %{"data" => models}}} when is_list(models) ->
           {:ok, models}
 
@@ -97,8 +98,8 @@ defmodule CodexPooler.Catalog.Sync.Discovery do
     end
   end
 
-  defp store_cloudflare_cookies(result, url) do
-    CloudflareCookies.store_from_result(url, result)
+  defp store_cloudflare_cookies(result, url, headers) do
+    CloudflareCookies.store_from_result(url, result, headers)
     result
   end
 

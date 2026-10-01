@@ -33,7 +33,7 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.Executor do
       end
       attempted = if result in [:already_refreshing, :backoff], do: attempted, else: attempted + 1
       state = {attempted, contended? or result == :already_refreshing}
-      routable? = result == :ok and match?({:ok, _, _}, Plan.filter_after_refresh(refresh_plan))
+      routable? = result == :ok and elem(Plan.filter_after_refresh(refresh_plan), 0) == :ok
       if routable? or attempted >= @max_refresh_attempts, do: {:halt, state}, else: {:cont, state}
     end)
 
