@@ -144,7 +144,7 @@ defmodule CodexPooler.Gateway.Routing.QuotaWindowRoutingTest do
         routing_snapshot(:unknown, [account_primary_window()]),
         routing_snapshot(:available, [account_primary_window()], observed_at: stale_at),
         routing_snapshot(:available, [account_primary_window()], observed_at: future_at),
-        routing_snapshot(:available, [account_primary_window()], credential_epoch: 2),
+        routing_snapshot(:available, [%{account_primary_window() | metadata: %{"credential_epoch" => 2}}], credential_epoch: 2),
         %{routing_snapshot(:available, [account_primary_window()]) | availability: nil}
       ]
 
