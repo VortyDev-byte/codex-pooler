@@ -66,7 +66,8 @@ defmodule CodexPooler.Gateway.Routing.QuotaRefresh.ExecutorTest do
     from(w in CodexPooler.Upstreams.Quota.AccountQuotaWindow,
       where: w.upstream_identity_id == ^setup.identity.id)
     |> Repo.update_all(set: [used_percent: Decimal.new(100),
-      reset_at: DateTime.add(DateTime.utc_now(), 3600, :second)])
+      reset_at: DateTime.add(DateTime.utc_now(), 3600, :second),
+      observed_at: DateTime.utc_now(), last_sync_at: DateTime.utc_now(), freshness_state: "fresh"])
     assert {:refreshable_quota, plan} =
       CandidateEligibility.filter_quota_eligible_candidates(plan.filter_input)
     assert plan.refreshable_candidates == []

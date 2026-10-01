@@ -1378,10 +1378,6 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
       forward_reset_cycle?(evidence, existing) ->
         :incoming
 
-      stale_same_cycle_exhausted_snapshot?(evidence, existing, timestamp) and
-          relative_reset_timing_present?(evidence.metadata) ->
-        :existing
-
       stale_same_cycle_exhausted_snapshot?(evidence, existing, timestamp) ->
         lower_snapshot_decision(evidence, existing, timestamp)
 

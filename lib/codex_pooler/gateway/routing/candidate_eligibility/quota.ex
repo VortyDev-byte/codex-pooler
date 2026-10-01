@@ -448,8 +448,8 @@ defmodule CodexPooler.Gateway.Routing.CandidateEligibility.Quota do
     # Refresh is a metadata read, not permission to spend quota. An ended
     # exhausted window must be revalidated; a live exhausted window must wait.
     "expired" in reason_codes or
-      ("exhausted" not in reason_codes and
-         Enum.any?(reason_codes, &(&1 in ["not_fresh", "reset_missing"]))) or
+      "not_fresh" in reason_codes or
+      ("exhausted" not in reason_codes and "reset_missing" in reason_codes) or
       "availability_revalidation_due" in reason_codes
   end
 
